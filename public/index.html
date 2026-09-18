@@ -1,391 +1,1101 @@
 <!DOCTYPE html>
-<html lang="si">
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FREE BOT BASE</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --bg: #050505;
-            --surface: #0d0d0d;
-            --border: #1a1a1a;
-            --neon: #00f2ff; /* Cyan Neon */
-            --neon-glow: rgba(0, 242, 255, 0.5);
-            --text: #ffffff;
-            --muted: #888888;
-            --error: #ff3e3e;
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>QUEEN-NELUMI-MD | VVIP BEST WHATSAPP BOT</title>
 
-        body.light-mode {
-            --bg: #ffffff;
-            --surface: #f5f5f5;
-            --border: #dddddd;
-            --neon: #000000;
-            --neon-glow: rgba(0, 0, 0, 0.2);
-            --text: #000000;
-            --muted: #666666;
-        }
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Poppins:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 
-        * {
-            margin: 0; padding: 0;
-            box-sizing: border-box;
-        }
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+--pink:#ff0080;--cyan:#00eaff;--purple:#8b00ff;--green:#00ff85;
+--yellow:#ffe600;--bg:#000000;--card:rgba(255,255,255,.055);
+--border:rgba(255,255,255,.13);--error:#ff3e3e;
+}
+html{scroll-behavior:smooth}
+body{
+min-height:100vh;overflow-x:hidden;color:#fff;font-family:Poppins,sans-serif;
+background:#000000;
+}
 
-        body {
-            background: var(--bg);
-            color: var(--text);
-            font-family: 'Inter', sans-serif;
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            overflow: hidden;
-            transition: background 0.5s ease;
-        }
+/* STRICT LOCKING OVERLAY WHEN UNAUTHENTICATED */
+body.locked {
+    overflow: hidden !important;
+}
 
-        
-        .bg-animate {
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            z-index: -1;
-            background: radial-gradient(circle at 50% 50%, #111 0%, #000 100%);
-            overflow: hidden;
-        }
-        
-        .blob {
-            position: absolute;
-            width: 300px; height: 300px;
-            background: var(--neon);
-            filter: blur(80px);
-            border-radius: 50%;
-            opacity: 0.05;
-            animation: move 20s infinite alternate;
-        }
+.rgb-line{position:fixed;top:0;left:0;width:100%;height:3px;z-index:9999;background:linear-gradient(90deg,#ff0080,#ff00ff,#8b00ff,#00eaff,#00ff85,#ffe600,#ff0080);background-size:400% 100%;animation:rgbLine 5s linear infinite;box-shadow:0 0 8px #ff0080,0 0 16px #00eaff}
+@keyframes rgbLine{0%{background-position:0 50%}100%{background-position:400% 50%}}
 
-        @keyframes move {
-            from { transform: translate(-10%, -10%); }
-            to { transform: translate(110%, 110%); }
-        }
+#snowCanvas{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:3}
+#petals{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:3}
 
-        
-        .container {
-            position: relative;
-            z-index: 1;
-            width: 100%;
-            max-width: 420px;
-            padding: 20px;
-            animation: fadeInScale 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        }
+.petal{
+position:absolute;
+top:-30px;
+left:var(--left);
+width:10px;
+height:15px;
+border-radius:80% 20% 80% 20%;
+background:linear-gradient(135deg, var(--color1), var(--color2));
+box-shadow:0 0 8px var(--color1);
+will-change:transform, opacity;
+animation:petalFall var(--duration) linear forwards;
+}
 
-        @keyframes fadeInScale {
-            from { opacity: 0; transform: scale(0.9); }
-            to { opacity: 1; transform: scale(1); }
-        }
+@keyframes petalFall{
+0%{transform:translate3d(0,-40px,0) rotate(0deg);opacity:0}
+10%{opacity:0.9}
+90%{opacity:0.9}
+100%{transform:translate3d(var(--drift),105vh,0) rotate(360deg);opacity:0}
+}
 
-        .brand {
-            text-align: center;
-            margin-bottom: 40px;
-        }
+.navbar{width:100%;padding:20px 7%;display:flex;align-items:center;justify-content:space-between;position:relative;z-index:20}
+.logo{font-family:Orbitron,sans-serif;font-size:20px;font-weight:900;letter-spacing:2px;background:linear-gradient(90deg,#ff0080,#ff00ff,#8b00ff,#00eaff,#00ff85,#ffe600,#ff0080);background-size:500%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:logoRGB 5s linear infinite}
+@keyframes logoRGB{to{background-position:500%}}
+.nav-right{display:flex;align-items:center;gap:10px}
+.nav-status{display:flex;align-items:center;gap:8px;padding:8px 14px;border:1px solid rgba(0,255,150,.3);background:rgba(0,255,150,.06);border-radius:50px;font-size:12px}
+.online-dot{width:8px;height:8px;background:#00ff85;border-radius:50%;box-shadow:0 0 10px #00ff85;animation:pulse 1.2s infinite}
+@keyframes pulse{50%{transform:scale(1.4);opacity:.5}}
+.nav-music button{display:flex;align-items:center;justify-content:center;gap:8px;border:1px solid rgba(255,0,128,.35);background:rgba(255,0,128,.08);color:#ff75bb;padding:9px 13px;border-radius:50px;cursor:pointer;font-family:Poppins;font-size:10px;font-weight:700;transition:.3s}
+.nav-music button:hover{transform:translateY(-2px)}
+.nav-music button.music-on{color:#00ff85;border-color:rgba(0,255,133,.35);background:rgba(0,255,133,.08);box-shadow:0 0 18px rgba(0,255,133,.25)}
 
-        .brand h1 {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 1.8rem;
-            letter-spacing: 6px;
-            text-transform: uppercase;
-            color: var(--neon);
-            text-shadow: 0 0 15px var(--neon-glow);
-            /* --- Animation 3: Text Flicker --- */
-            animation: flicker 3s infinite;
-        }
+.hero{min-height:600px;padding:45px 7% 70px;display:grid;grid-template-columns:1fr 1fr;gap:50px;align-items:center;position:relative;z-index:10}
+.hero-content{position:relative;z-index:5}
+.badge{display:inline-flex;align-items:center;gap:8px;padding:9px 15px;border-radius:50px;border:1px solid rgba(255,0,128,.35);background:rgba(255,0,128,.08);color:#ff76bc;font-size:10px;font-weight:700;letter-spacing:1.5px;margin-bottom:20px}
+.hero h1{font-family:Orbitron,sans-serif;font-size:clamp(35px,6vw,75px);line-height:1;letter-spacing:3px;margin-bottom:15px}
+.hero h1 span{display:block;background:linear-gradient(90deg,#ff0080,#ff00ff,#8b00ff,#00eaff,#00ff85,#ffe600,#ff0080);background-size:500%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:heroRGB 6s linear infinite}
+@keyframes heroRGB{to{background-position:500%}}
+.subtitle{color:#bbb;font-size:14px;line-height:1.8;max-width:560px;margin-bottom:25px}
+.buttons{display:flex;flex-wrap:wrap;gap:12px}
+.btn{border:none;outline:none;cursor:pointer;color:white;padding:13px 20px;border-radius:12px;font-family:Poppins;font-weight:600;display:flex;align-items:center;justify-content:center;gap:9px;transition:.3s;position:relative;overflow:hidden}
+.btn:disabled{opacity:.6;cursor:not-allowed}
+.btn-primary{background:linear-gradient(90deg,#ff0080,#ff00ff,#8b00ff,#00eaff,#00ff85,#ffe600,#ff0080);background-size:400% 100%;animation:buttonRGB 6s linear infinite;box-shadow:0 0 15px rgba(255,0,128,.3)}
+@keyframes buttonRGB{to{background-position:400% 0}}
+.btn-secondary{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12)}
+.btn:hover{transform:translateY(-3px)}
 
-        @keyframes flicker {
-            0%, 18%, 22%, 25%, 53%, 57%, 100% { text-shadow: 0 0 15px var(--neon-glow); }
-            20%, 24%, 55% { text-shadow: none; opacity: 0.8; }
-        }
+.social{display:flex;gap:10px;margin-top:25px}
+.social a{width:42px;height:42px;display:flex;align-items:center;justify-content:center;border-radius:12px;text-decoration:none;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);transition:.3s}
+.social a:hover{transform:translateY(-5px) scale(1.05)}
+.social a:nth-child(1){color:#25D366}.social a:nth-child(2){color:#229ED9}.social a:nth-child(3){color:#ff4fa8}.social a:nth-child(4){color:#ff0000}.social a:nth-child(5){color:#fff}
 
-        .card {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 40px 30px;
-            position: relative;
-            overflow: hidden;
-            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
-            transition: all 0.4s ease;
-        }
+.anime-area{position:relative;display:flex;align-items:center;justify-content:center}
+.anime-glow{position:absolute;width:330px;height:330px;border-radius:50%;background:linear-gradient(135deg,#ff0080,#8b00ff,#00eaff);filter:blur(80px);opacity:.25;animation:animeGlow 4s ease-in-out infinite}
+@keyframes animeGlow{50%{transform:scale(1.15);opacity:.4}}
+.anime-card{width:min(390px,90vw);height:480px;position:relative;overflow:hidden;border-radius:30px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.04);box-shadow:0 0 30px rgba(255,0,128,.12),inset 0 0 30px rgba(255,255,255,.03);backdrop-filter:blur(15px);transform:rotate(2deg);transition:.5s}
+.anime-card:hover{transform:rotate(0) scale(1.02)}
+.anime-card img{width:100%;height:100%;object-fit:cover;display:block}
+.anime-overlay{position:absolute;inset:0;background:linear-gradient(transparent 40%,rgba(0,0,0,.9))}
+.anime-text{position:absolute;bottom:22px;left:22px;right:22px}.anime-text h3{font-family:Orbitron;font-size:18px;letter-spacing:2px}.anime-text p{font-size:11px;color:#aaa;margin-top:5px}
 
-        
-        .card:focus-within {
-            border-color: var(--neon);
-            box-shadow: 0 0 30px rgba(0, 242, 255, 0.15);
-        }
+.owner-section{position:relative;z-index:10;padding:0 7% 35px}
+.owner-card{position:relative;overflow:hidden;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:20px;padding:20px 24px;border-radius:24px;background:linear-gradient(135deg,rgba(255,0,128,.12),rgba(139,0,255,.09),rgba(0,234,255,.08)),rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.14);box-shadow:0 0 35px rgba(255,0,128,.08);backdrop-filter:blur(18px);transition:.35s}
+.whatsapp-business-logo{width:76px;height:76px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#00ff85,#00c853,#00a844);color:#fff;font-size:34px;box-shadow:0 0 15px rgba(0,255,133,.45),0 0 35px rgba(0,255,133,.18)}
+.owner-info small{font-family:Orbitron;font-size:9px;letter-spacing:3px;color:#ff6bb5}.owner-info h2{font-family:Orbitron;font-size:19px;margin:5px 0}.owner-info p{font-size:11px;color:#8f98a8}.owner-number{display:block;font-family:Orbitron;font-size:11px;margin-top:6px;color:#00ff85}
+.owner-wa{display:inline-flex;align-items:center;gap:9px;text-decoration:none;color:#fff;padding:12px 17px;border-radius:13px;font-size:11px;font-weight:700;background:linear-gradient(90deg,#00b957,#00ff85,#00c96b);box-shadow:0 0 18px rgba(0,255,133,.18);transition:.3s}
 
-        .label {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.75rem;
-            color: var(--neon);
-            margin-bottom: 20px;
-            display: block;
-            letter-spacing: 1px;
-        }
+.dashboard{position:relative;z-index:10;padding:20px 7% 80px}
+.section-title{margin-bottom:25px;display:flex;justify-content:space-between;align-items:flex-end}.section-title small{color:#ff3b9d;letter-spacing:3px;font-size:10px;font-weight:bold}.section-title h2{font-family:Orbitron;margin-top:5px;font-size:28px}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:15px}
+.card{position:relative;overflow:hidden;background:var(--card);border:1px solid var(--border);border-radius:20px;padding:22px;backdrop-filter:blur(15px);transition:.35s}
+.card:hover{transform:translateY(-5px);border-color:rgba(255,0,128,.35)}
+.card-icon{width:45px;height:45px;border-radius:13px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.06);color:#00eaff;font-size:19px;margin-bottom:16px}
+.card h3{font-size:13px;color:#999;font-weight:500}.value{margin-top:5px;font-family:Orbitron;font-size:20px;font-weight:700}
+.battery-wrap{margin-top:12px;height:8px;background:rgba(255,255,255,.08);border-radius:20px;overflow:hidden}.battery-bar{width:0;height:100%;border-radius:20px;background:linear-gradient(90deg,#ff0080,#ff00ff,#8b00ff,#00eaff,#00ff85,#ffe600);transition:width .7s}
+.session{margin-top:20px;display:grid;grid-template-columns:1.4fr .6fr;gap:20px}.session-main{min-height:250px}.session-top{display:flex;align-items:center;justify-content:space-between}.active-session-title{display:inline-flex;align-items:center;gap:8px}.active-session-title i{color:#00ff85}.session-status{display:flex;align-items:center;gap:7px;font-size:11px;color:#00ff85}.session-status span{width:8px;height:8px;border-radius:50%;background:#00ff85;box-shadow:0 0 10px #00ff85}
+.session-info{margin-top:25px;display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.info{padding:15px;border-radius:13px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.06)}.info label{display:block;color:#777;font-size:10px;margin-bottom:4px}.info strong{font-size:12px}
+.player{margin-top:20px;display:flex;align-items:center;gap:15px;padding:12px;border-radius:17px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.06)}.album{width:58px;height:58px;border-radius:15px;overflow:hidden;flex-shrink:0}.album img{width:100%;height:100%;object-fit:cover}.song-info{flex:1;min-width:0}.song-info h4{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.song-info p{font-size:10px;color:#777;margin-top:3px}.player-controls{display:flex;gap:7px}.player-controls button{width:38px;height:38px;border:none;border-radius:10px;color:#fff;background:rgba(255,255,255,.07);cursor:pointer;transition:.3s}.player-controls button:hover{background:rgba(255,0,128,.2);transform:scale(1.08)}
+.music-toggle.is-on{color:#00ff85;box-shadow:0 0 12px rgba(0,255,133,.25)}.music-toggle.is-off{color:#ff3b3b;box-shadow:0 0 12px rgba(255,59,59,.25)}
+.pair-card{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}.pair-icon{font-size:38px;margin-bottom:15px;background:linear-gradient(90deg,#ff0080,#8b00ff,#00eaff,#00ff85,#ff0080);background-size:300%;-webkit-background-clip:text;color:transparent;animation:pairRGB 4s linear infinite}@keyframes pairRGB{to{background-position:300%}}.pair-card h3{font-family:Orbitron;font-size:16px;margin-bottom:7px}.pair-card p{color:#888;font-size:11px;line-height:1.6;margin-bottom:18px}
 
-        .input-wrapper {
-            margin-bottom: 25px;
-            position: relative;
-        }
+/* ADVANCED OWNER DASHBOARD STYLES */
+.owner-panel{margin-top:30px;padding:25px;border-radius:24px;background:linear-gradient(135deg,rgba(255,0,128,.08),rgba(0,234,255,.05));border:1px solid rgba(255,0,128,.35);box-shadow:0 0 40px rgba(255,0,128,.15);display:none;}
+.owner-panel-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;border-bottom:1px solid rgba(255,255,255,.1);padding-bottom:12px}
+.owner-panel h3{font-family:Orbitron;font-size:16px;color:#ff0080;display:flex;align-items:center;gap:10px}
+.user-list{display:flex;flex-direction:column;gap:10px}
+.user-item{padding:14px;background:rgba(0,0,0,.4);border-radius:14px;border:1px solid rgba(255,255,255,.08);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px}
+.user-details{display:flex;flex-direction:column;gap:3px}
+.user-details strong{color:#00eaff;font-size:13px}
+.user-details span{font-size:11px;color:#aaa}
+.user-details small{font-size:11px;color:#00ff85;font-family:'JetBrains Mono', monospace;font-weight:bold}
+.delete-btn{background:rgba(255,59,59,.2);border:1px solid rgba(255,59,59,.4);color:#ff4d6d;padding:6px 12px;border-radius:8px;cursor:pointer;font-size:10px;transition:.3s}
+.delete-btn:hover{background:#ff4d6d;color:#fff}
 
-        input[type="tel"] {
-            width: 100%;
-            background: rgba(255,255,255,0.03);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            color: var(--text);
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 1.2rem;
-            padding: 15px;
-            outline: none;
-            transition: 0.3s;
-        }
+footer{position:relative;z-index:10;text-align:center;padding:30px 20px 40px;color:#666;font-size:11px}footer strong{background:linear-gradient(90deg,#ff0080,#00eaff);-webkit-background-clip:text;color:transparent}
 
-        input[type="tel"]:focus {
-            background: rgba(255,255,255,0.05);
-            border-color: var(--neon);
-        }
+.modal{position:fixed;inset:0;z-index:10000;display:none;justify-content:center;align-items:center;padding:20px;background:rgba(0,0,0,.92);backdrop-filter:blur(18px)}.modal.show{display:flex}
+.modal-box{width:min(430px,100%);max-height:90vh;overflow:auto;background:linear-gradient(145deg,rgba(255,0,128,.12),rgba(0,234,255,.08)),#090912;border:1px solid rgba(255,0,128,.25);border-radius:25px;padding:28px;box-shadow:0 0 50px rgba(255,0,128,.25)}
+.modal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px}.modal-header h2{font-family:Orbitron;font-size:18px}.close{width:35px;height:35px;border:none;border-radius:10px;background:rgba(255,255,255,.06);color:#fff;cursor:pointer}
+.input-group{margin-bottom:15px}.input-group label{display:block;font-size:10px;color:#888;margin-bottom:7px}.input-group input{width:100%;padding:13px;border-radius:11px;outline:none;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);color:#fff;font-family:'JetBrains Mono', monospace;font-size: 1.1rem;}
+.input-group input:focus{border-color:#00eaff;box-shadow:0 0 10px rgba(0,234,255,.2)}
+.modal-owner{display:flex;align-items:center;gap:12px;padding:13px;margin:14px 0 16px;border-radius:15px;background:rgba(0,255,133,.045);border:1px solid rgba(0,255,133,.2)}.modal-owner-icon{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:rgba(0,255,133,.12);color:#00ff85}.modal-owner-text small{display:block;color:#777;font-size:8px;letter-spacing:2px}.modal-owner-text a{display:block;color:#00ff85;text-decoration:none;font-family:Orbitron;font-size:11px;margin-top:4px}
+.loader{width:18px;height:18px;border:2px solid rgba(255,255,255,.2);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:none}@keyframes spin{to{transform:rotate(360deg)}}
 
-        
-        .btn {
-            width: 100%;
-            background: var(--neon);
-            color: #000;
-            border: none;
-            padding: 18px;
-            border-radius: 8px;
-            font-family: 'JetBrains Mono', monospace;
-            font-weight: 800;
-            cursor: pointer;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            position: relative;
-            overflow: hidden;
-        }
+/* INTEGRATED PAIR CODE DISPLAY */
+.code-display {
+    background: rgba(0, 242, 255, 0.05);
+    border: 1px dashed var(--cyan);
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+    margin-top: 20px;
+    display: none;
+}
+.code-display.show {
+    display: block;
+    animation: slideIn 0.5s ease forwards;
+}
+@keyframes slideIn {
+    from { opacity: 0; transform: translateY(15px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.code-text {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 2rem;
+    font-weight: 700;
+    letter-spacing: 8px;
+    color: var(--cyan);
+    text-shadow: 0 0 12px rgba(0, 234, 255, 0.5);
+}
+.copy-link {
+    font-size: 0.75rem;
+    color: #888;
+    margin-top: 12px;
+    cursor: pointer;
+    transition: 0.3s;
+    font-weight: 600;
+}
+.copy-link:hover { color: var(--cyan); }
+.error-display {
+    color: var(--error);
+    text-align: center;
+    font-size: 0.8rem;
+    border: 1px solid var(--error);
+    padding: 12px;
+    border-radius: 8px;
+    margin-top: 20px;
+    display: none;
+    background: rgba(255, 62, 62, 0.05);
+}
+.error-display.show { display: block; }
 
-        .btn:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 10px 20px var(--neon-glow);
-            filter: brightness(1.1);
-        }
+.toast{position:fixed;left:50%;bottom:25px;transform:translate(-50%,120px);z-index:20000;padding:12px 20px;border-radius:50px;background:rgba(10,10,20,.94);border:1px solid rgba(255,255,255,.15);box-shadow:0 0 30px rgba(255,0,128,.2);font-size:11px;opacity:0;transition:.4s}.toast.show{transform:translate(-50%,0);opacity:1}
+body.music-playing .album{animation:albumSpin 4s linear infinite}@keyframes albumSpin{from{transform:rotate(0)}to{transform:rotate(360deg)}}body.music-playing .player{border-color:rgba(0,255,133,.35);box-shadow:0 0 25px rgba(0,255,133,.08)}
+.auth-switch{border:0;background:none;cursor:pointer;font-family:Poppins;font-size:11px;font-weight:600;margin-left:5px}
+.auth-security{margin-top:14px;padding:10px;border-radius:12px;text-align:center;font-size:9px;color:#777;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.06)}
 
-        .btn:active { transform: translateY(0); }
+.strict-badge {
+    background: rgba(255, 77, 109, 0.15);
+    border: 1px solid rgba(255, 77, 109, 0.4);
+    color: #ff4d6d;
+    padding: 8px 12px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 600;
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
 
-        .loader {
-            width: 18px; height: 18px;
-            border: 3px solid #000;
-            border-top: 3px solid transparent;
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-        }
-
-        @keyframes spin { to { transform: rotate(360deg); } }
-
-        .result {
-            margin-top: 25px;
-            display: none;
-        }
-
-        .result.show { 
-            display: block; 
-            animation: slideIn 0.5s ease forwards;
-        }
-
-        @keyframes slideIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .code-display {
-            background: rgba(0, 242, 255, 0.05);
-            border: 1px dashed var(--neon);
-            border-radius: 8px;
-            padding: 25px;
-            text-align: center;
-        }
-
-        .code-text {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 2.2rem;
-            font-weight: 700;
-            letter-spacing: 10px;
-            color: var(--neon);
-            text-shadow: 0 0 10px var(--neon-glow);
-        }
-
-        .copy-link {
-            font-size: 0.7rem;
-            color: var(--muted);
-            margin-top: 15px;
-            cursor: pointer;
-            transition: 0.3s;
-        }
-
-        .copy-link:hover { color: var(--neon); }
-
-        .footer {
-            text-align: center;
-            margin-top: 40px;
-            font-size: 0.65rem;
-            letter-spacing: 4px;
-            color: var(--muted);
-            opacity: 0.6;
-        }
-
-       
-        .floating-controls {
-            position: fixed;
-            top: 25px;
-            right: 25px;
-            display: flex;
-            gap: 15px;
-            z-index: 100;
-        }
-
-        .f-btn {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            color: var(--text);
-            padding: 10px 15px;
-            border-radius: 50px;
-            font-size: 0.7rem;
-            cursor: pointer;
-            backdrop-filter: blur(10px);
-            transition: 0.3s;
-        }
-
-        .f-btn:hover { border-color: var(--neon); color: var(--neon); }
-
-    </style>
+@media(max-width:950px){.hero{grid-template-columns:1fr;text-align:center}.hero-content{display:flex;flex-direction:column;align-items:center}.social{justify-content:center}.grid{grid-template-columns:repeat(2,1fr)}.session{grid-template-columns:1fr}}
+@media(max-width:650px){.navbar{padding:18px 5%}.logo{font-size:13px}.nav-status{font-size:8px;padding:7px 9px}.nav-music button{padding:7px 9px;font-size:9px}.nav-music button span{display:none}.hero{padding:35px 5% 50px}.hero h1{font-size:38px}.subtitle{font-size:12px}.anime-card{height:420px}.owner-section{padding:0 5% 28px}.owner-card{grid-template-columns:auto 1fr;padding:16px}.owner-wa{grid-column:1/-1;width:100%;justify-content:center}.dashboard{padding-left:5%;padding-right:5%}.grid{grid-template-columns:1fr 1fr;gap:10px}.card{padding:16px}.value{font-size:16px}.session-info{grid-template-columns:1fr}.player{flex-wrap:wrap}.player-controls{width:100%;justify-content:flex-end}}
+@media(max-width:390px){.grid{grid-template-columns:1fr}}
+</style>
 </head>
-<body>
 
-<div class="bg-animate">
-    <div class="blob"></div>
-</div>
+<body class="locked">
 
-<div class="floating-controls">
-    <button class="f-btn" onclick="toggleMusic()" id="mBtn">𝐌𝐔𝐒𝐈𝐂: 𝐎𝐅𝐅 🎵</button>
-    <button class="f-btn" onclick="toggleTheme()">𝐌𝐎𝐃𝐄 🌓</button>
-</div>
+<div class="rgb-line"></div>
+<canvas id="snowCanvas"></canvas>
+<div id="petals"></div>
 
-<audio id="bgMusic" loop>
-    <source src="https://files.catbox.moe/srf3p5.mp3" type="audio/mpeg">
-</audio>
+<nav class="navbar">
+    <div class="logo">QUEEN-NELUMI-MD</div>
+    <div class="nav-right">
+        <div class="nav-music">
+            <button type="button" id="topMusicToggle">
+                <i class="fa-solid fa-volume-xmark"></i>
+                <span>MUSIC OFF</span>
+            </button>
+        </div>
+        <div class="nav-status">
+            <span class="online-dot"></span>
+            SYSTEM ONLINE
+        </div>
+    </div>
+</nav>
 
-<div class="container">
-    <div class="brand">
-        <h1>𝐅𝐑𝐄𝐄 𝐁𝐎𝐓 𝐁𝐀𝐒𝐄</h1>
-        <div style="font-size: 0.6rem; color: var(--muted); margin-top: 10px; letter-spacing: 3px;">
-            <span style="color: var(--neon);">●</span> 𝐒𝐘𝐒𝐓𝐄𝐌 𝐒𝐄𝐂𝐔𝐑𝐄 ⚡
+<section class="hero">
+    <div class="hero-content">
+        <div class="badge">
+            <i class="fa-solid fa-crown"></i>
+            VVIP BEST WHATSAPP BOT 🧚‍♂️
+        </div>
+
+        <h1>QUEEN <span>NELUMI-MD</span></h1>
+
+        <p class="subtitle">
+            Welcome to the official <b>VVIP BEST WHATSAPP BOT 🧚‍♂️</b>.
+            Enjoy a premium RGB experience with animated particles,
+            live device information, music, pairing interface and VVIP dashboard controls.
+        </p>
+
+        <div class="buttons">
+            <button type="button" class="btn btn-primary" id="heroPairBtn">
+                <i class="fa-solid fa-link"></i> PAIR DEVICE
+            </button>
+
+            <button type="button" class="btn btn-secondary" id="dashboardBtn">
+                <i class="fa-solid fa-chart-line"></i> DASHBOARD
+            </button>
+        </div>
+
+        <div class="social">
+            <a href="https://wa.me/94757166965?text=%E0%B7%84%E0%B7%8F%E0%B6%BA%E0%B7%92_Pahasara_Bbh%F0%9F%A7%9A%E2%80%8D%E2%99%82%EF%B8%8F_%F0%9F%8D%AD" target="_blank" rel="noopener">
+                <i class="fa-brands fa-whatsapp"></i>
+            </a>
+            <a href="#" onclick="return false;"><i class="fa-brands fa-telegram"></i></a>
+            <a href="#" onclick="return false;"><i class="fa-brands fa-instagram"></i></a>
+            <a href="#" onclick="return false;"><i class="fa-brands fa-youtube"></i></a>
+            <a href="#" onclick="return false;"><i class="fa-brands fa-github"></i></a>
         </div>
     </div>
 
-    <div class="card">
-        <label class="label">01. 𝐄𝐍𝐓𝐄𝐑 𝐏𝐇𝐎𝐍𝐄 𝐍𝐔𝐌𝐁𝐄𝐑</label>
-        <div class="input-wrapper">
-            <input type="tel" id="phoneInput" placeholder="947XXXXXXXX" maxlength="15">
+    <div class="anime-area">
+        <div class="anime-glow"></div>
+        <div class="anime-card">
+            <img src="https://i.ibb.co/MDTxZ3YH/file-000000000b588208adaa585e27e70948.png" alt="Queen Nelumi">
+            <div class="anime-overlay"></div>
+            <div class="anime-text">
+                <h3>QUEEN NELUMI</h3>
+                <p>VVIP BEST WHATSAPP BOT 🧚‍♂️</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="owner-section">
+    <div class="owner-card">
+        <div class="whatsapp-business-logo">
+            <i class="fa-brands fa-whatsapp"></i>
         </div>
 
-        <button class="btn" id="pairBtn" onclick="getPairingCode()">
-            <span id="btnText">𝐆𝐄𝐓 𝐏𝐀𝐈𝐑𝐈𝐍𝐆 𝐂𝐎𝐃𝐄</span>
+        <div class="owner-info">
+            <small>OFFICIAL OWNER</small>
+            <h2>QUEEN NELUMI • OWNER</h2>
+            <p>VVIP BEST WHATSAPP BOT 🧚‍♂️</p>
+            <span class="owner-number">+94 75 716 6965</span>
+        </div>
+
+        <a class="owner-wa" href="https://wa.me/94757166965?text=%E0%B7%84%E0%B7%8F%E0%B6%BA%E0%B7%92_Pahasara_Bbh%F0%9F%A7%9A%E2%80%8D%E2%99%82%EF%B8%8F_%F0%9F%8D%AD" target="_blank" rel="noopener noreferrer">
+            <i class="fa-brands fa-whatsapp"></i>
+            CONTACT OWNER
+        </a>
+    </div>
+</section>
+
+<section class="dashboard" id="dashboard">
+    <div class="section-title">
+        <div>
+            <small>CONTROL CENTER</small>
+            <h2>VVIP DASHBOARD</h2>
+        </div>
+        <button type="button" class="btn btn-secondary" id="logoutBtn" style="display:none">
+            <i class="fa-solid fa-right-from-bracket"></i> LOGOUT
+        </button>
+    </div>
+
+    <div class="grid">
+        <div class="card">
+            <div class="card-icon"><i class="fa-regular fa-clock"></i></div>
+            <h3>LOCAL TIME</h3>
+            <div class="value" id="clock">00:00:00</div>
+        </div>
+
+        <div class="card">
+            <div class="card-icon"><i class="fa-solid fa-battery-half"></i></div>
+            <h3>PHONE BATTERY</h3>
+            <div class="value" id="battery">Detecting...</div>
+            <div class="battery-wrap"><div class="battery-bar" id="batteryBar"></div></div>
+        </div>
+
+        <div class="card">
+            <div class="card-icon"><i class="fa-solid fa-wifi"></i></div>
+            <h3>CONNECTION</h3>
+            <div class="value" id="connection">Checking...</div>
+        </div>
+
+        <div class="card">
+            <div class="card-icon"><i class="fa-solid fa-robot"></i></div>
+            <h3>ACTIVE SESSION</h3>
+            <div class="value" id="sessionCount">00</div>
+            <div style="font-size:9px;color:#777;margin-top:5px">BOT PAIRS</div>
+        </div>
+    </div>
+
+    <div class="session">
+        <div class="card session-main">
+            <div class="session-top">
+                <div>
+                    <h3 class="active-session-title" style="color:#fff;font-size:16px">
+                        <i class="fa-solid fa-mobile-screen-button"></i> Active Session
+                    </h3>
+                    <p style="font-size:10px;color:#777;margin-top:4px">BOT PAIR SESSION COUNT</p>
+                </div>
+
+                <div class="session-status">
+                    <span></span> ACTIVE
+                </div>
+            </div>
+
+            <div class="session-info">
+                <div class="info"><label>BOT PAIRS</label><strong id="pairedBots">0</strong></div>
+                <div class="info"><label>SESSION TYPE</label><strong>BOT PAIR SESSION</strong></div>
+                <div class="info"><label>LAST PAIR</label><strong id="lastPair">Not paired yet</strong></div>
+                <div class="info"><label>STATUS</label><strong id="pairStatus" style="color:#00ff85">Waiting</strong></div>
+            </div>
+
+            <div class="player">
+                <div class="album">
+                    <img src="https://i.ibb.co/MDTxZ3YH/file-000000000b588208adaa585e27e70948.png" alt="VVIP Music">
+                </div>
+
+                <div class="song-info">
+                    <h4>QUEEN NELUMI • VVIP SONG</h4>
+                    <p id="musicStatus">Music OFF • Tap Play</p>
+                </div>
+
+                <div class="player-controls">
+                    <button type="button" class="music-toggle is-off" id="musicToggle"><i class="fa-solid fa-volume-xmark"></i></button>
+                    <button type="button" id="previousBtn"><i class="fa-solid fa-backward"></i></button>
+                    <button type="button" id="playBtn"><i class="fa-solid fa-play"></i></button>
+                    <button type="button" id="nextBtn"><i class="fa-solid fa-forward"></i></button>
+                </div>
+            </div>
+        </div>
+
+        <div class="card pair-card">
+            <div class="pair-icon"><i class="fa-solid fa-qrcode"></i></div>
+            <h3>PAIR DEVICE</h3>
+            <p>Enter your WhatsApp number and connect your bot through the pairing API.</p>
+
+            <button type="button" class="btn btn-primary" id="connectBtn" style="width:100%">
+                <i class="fa-solid fa-link"></i> CONNECT
+            </button>
+        </div>
+    </div>
+
+    <!-- OWNER CONTROL PANEL (VISIBLE TO OWNER ONLY) -->
+    <div class="owner-panel" id="ownerPanel">
+        <div class="owner-panel-header">
+            <h3><i class="fa-solid fa-user-shield"></i> REGISTERED USERS LIST (OWNER ONLY)</h3>
+            <span style="font-size:11px;color:#00ff85" id="userCount">0 Users</span>
+        </div>
+        <div class="user-list" id="registeredUserList">
+            <p style="color:#777">No registered users yet.</p>
+        </div>
+    </div>
+</section>
+
+<footer>
+    <div>Made with 💖 For <strong>QUEEN-NELUMI-MD</strong></div>
+    <div style="margin-top:7px">VVIP BEST WHATSAPP BOT 🧚‍♂️</div>
+    <div style="margin-top:7px">PAHASARA OFC • 2026</div>
+</footer>
+
+<!-- PAIR MODAL -->
+<div class="modal" id="pairModal">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h2><i class="fa-solid fa-link"></i> PAIR DEVICE</h2>
+            <button type="button" class="close" id="closePairBtn"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+
+        <div class="input-group">
+            <label>ENTER PHONE NUMBER</label>
+            <input id="phoneInput" type="tel" maxlength="15" placeholder="947XXXXXXXX">
+        </div>
+
+        <div class="modal-owner">
+            <div class="modal-owner-icon"><i class="fa-brands fa-whatsapp"></i></div>
+            <div class="modal-owner-text">
+                <small>OWNER CONTACT</small>
+                <a href="https://wa.me/94757166965" target="_blank" rel="noopener">Owner • 94757166965</a>
+            </div>
+        </div>
+
+        <button type="button" class="btn btn-primary" id="pairBtn" onclick="getPairingCode()" style="width:100%">
+            <span id="btnText">GET PAIRING CODE</span>
+            <span class="loader" id="loader"></span>
         </button>
 
-        <div class="result" id="result"></div>
-    </div>
-
-    <div class="footer">𝐏𝐎𝐖𝐄𝐑𝐃 𝐁𝐘 𝐃𝐈𝐍𝐀 🤍</div>
-</div>
-
-<script>
-    async function getPairingCode() {
-        const input = document.getElementById('phoneInput');
-        const btn = document.getElementById('pairBtn');
-        const btnText = document.getElementById('btnText');
-        const resultDiv = document.getElementById('result');
-
-        const number = input.value.trim().replace(/[^0-9]/g, '');
-
-        if (number.length < 7) {
-            showError('Invalid Format!');
-            return;
-        }
-
-        btn.disabled = true;
-        btnText.innerHTML = '<center><div class="loader"></div></center>';
-        resultDiv.classList.remove('show');
-
-        try {
-            const response = await fetch(`/pair?number=${number}`);
-            const data = await response.json();
-
-            if (data.code) {
-                showCode(data.code, number);
-            } else {
-                showError(data.error || 'Connection Error');
-            }
-        } catch (err) {
-            showError('Server Offline');
-        } finally {
-            btn.disabled = false;
-            btnText.innerHTML = 'GET PAIRING CODE';
-        }
-    }
-
-    function showCode(code, number) {
-        const resultDiv = document.getElementById('result');
-        resultDiv.innerHTML = `
-            <div class="code-display">
-                <div class="code-text">${code}</div>
-                <div class="copy-link" onclick="copyCode('${code}')">CLICK TO COPY CODE</div>
-            </div>
-            <p style="font-size: 0.7rem; color: var(--muted); margin-top: 15px; line-height: 1.5; text-align: center;">
+        <div class="code-display" id="codeDisplay">
+            <div class="code-text" id="codeText">XXXX-XXXX</div>
+            <div class="copy-link" id="copyLink" onclick="copyCode()">CLICK TO COPY CODE</div>
+            <p style="font-size: 0.7rem; color: #888; margin-top: 15px; line-height: 1.5; text-align: center;">
                 Go to WhatsApp Settings > Linked Devices > Link with Phone Number.
             </p>
-        `;
-        resultDiv.classList.add('show');
-    }
+        </div>
 
-    function showError(msg) {
-        const resultDiv = document.getElementById('result');
-        resultDiv.innerHTML = `<div style="color: var(--error); text-align: center; font-size: 0.8rem; border: 1px solid var(--error); padding: 10px; border-radius: 5px;">${msg}</div>`;
-        resultDiv.classList.add('show');
-    }
+        <div class="error-display" id="errorDisplay"></div>
+    </div>
+</div>
 
-    function copyCode(code) {
-        navigator.clipboard.writeText(code);
-        const link = document.querySelector('.copy-link');
-        link.innerText = 'COPIED SUCCESSFULLY!';
-        link.style.color = 'var(--neon)';
-        setTimeout(() => {
-            link.innerText = 'CLICK TO COPY CODE';
-            link.style.color = 'var(--muted)';
-        }, 2000);
-    }
+<!-- STRICT AUTH MODAL -->
+<div class="modal show" id="authModal">
+    <div class="modal-box">
+        <div class="strict-badge">
+            <i class="fa-solid fa-lock"></i> ACCESS RESTRICTED • LOGIN / REGISTRATION REQUIRED
+        </div>
 
-    function toggleTheme() {
-        document.body.classList.toggle('light-mode');
-    }
+        <div class="modal-header">
+            <div>
+                <h2 id="authTitle"><i class="fa-solid fa-user-plus"></i> SIGN UP</h2>
+                <p id="authSubtitle" style="font-size:10px;color:#777;margin-top:5px">
+                    You must register or login to access QUEEN-NELUMI-MD
+                </p>
+            </div>
+        </div>
 
-    let isPlaying = false;
-    const music = document.getElementById('bgMusic');
-    function toggleMusic() {
-        if (isPlaying) {
-            music.pause();
-            document.getElementById('mBtn').innerText = "MUSIC: OFF 🎵";
-        } else {
-            music.play();
-            document.getElementById('mBtn').innerText = "MUSIC: ON 🔊";
+        <!-- SIGNUP FORM -->
+        <div id="signupForm">
+            <div class="input-group">
+                <label>USERNAME</label>
+                <input id="signupUsername" type="text" autocomplete="username" placeholder="Enter username">
+            </div>
+
+            <div class="input-group">
+                <label>GMAIL ADDRESS (@gmail.com only)</label>
+                <input id="signupEmail" type="email" autocomplete="email" placeholder="example@gmail.com">
+            </div>
+
+            <div class="input-group">
+                <label>PASSWORD</label>
+                <input id="signupPassword" type="password" autocomplete="new-password" placeholder="Create password">
+            </div>
+
+            <div class="input-group">
+                <label>CONFIRM PASSWORD</label>
+                <input id="signupConfirm" type="password" autocomplete="new-password" placeholder="Confirm password">
+            </div>
+
+            <button type="button" class="btn btn-primary" id="signupBtn" style="width:100%">
+                <i class="fa-solid fa-user-plus"></i> CREATE VVIP ACCOUNT
+            </button>
+
+            <p style="text-align:center;margin-top:15px;font-size:11px;color:#777">
+                Already registered?
+                <button type="button" class="auth-switch" id="switchLogin" style="color:#00eaff">LOGIN</button>
+            </p>
+        </div>
+
+        <!-- LOGIN FORM -->
+        <div id="loginForm" style="display:none">
+            <div class="input-group">
+                <label>GMAIL ADDRESS OR USERNAME</label>
+                <input id="loginUsername" type="text" autocomplete="username" placeholder="example@gmail.com or username">
+            </div>
+
+            <div class="input-group">
+                <label>PASSWORD</label>
+                <input id="loginPassword" type="password" autocomplete="current-password" placeholder="Enter password">
+            </div>
+
+            <button type="button" class="btn btn-primary" id="loginBtn" style="width:100%">
+                <i class="fa-solid fa-right-to-bracket"></i> LOGIN TO DASHBOARD
+            </button>
+
+            <p style="text-align:center;margin-top:15px;font-size:11px;color:#777">
+                Don't have an account?
+                <button type="button" class="auth-switch" id="switchSignup" style="color:#ff0080">SIGN UP</button>
+            </p>
+        </div>
+
+        <div id="authStatus" style="display:none;margin-top:15px;padding:11px;border-radius:12px;text-align:center;font-size:11px"></div>
+
+        <div class="auth-security">
+            <i class="fa-solid fa-shield-halved"></i>
+            LOGIN IS MANDATORY TO ENTER SITE
+        </div>
+    </div>
+</div>
+
+<audio id="music" loop playsinline preload="auto">
+    <source src="https://files.catbox.moe/fa7a4z.mp3" type="audio/mpeg">
+</audio>
+
+<div class="toast" id="toast">Ready</div>
+
+<script>
+/* ================= ZERO-LAG HIGH-PERFORMANCE RGB SNOW CANVAS ================= */
+const canvas = document.getElementById("snowCanvas");
+const ctx = canvas.getContext("2d");
+
+let width, height;
+function resizeCanvas() {
+    width = canvas.width = window.innerWidth;
+    height = canvas.height = window.innerHeight;
+}
+window.addEventListener("resize", resizeCanvas);
+resizeCanvas();
+
+const rgbColors = [
+    { r: 255, g: 0, b: 128 },
+    { r: 255, g: 0, b: 255 },
+    { r: 139, g: 0, b: 255 },
+    { r: 0, g: 234, b: 255 },
+    { r: 0, g: 255, b: 133 },
+    { r: 255, g: 230, b: 0 }
+];
+
+const flakeCount = Math.min(Math.floor(window.innerWidth / 15), 50);
+const snowflakes = [];
+
+for (let i = 0; i < flakeCount; i++) {
+    snowflakes.push({
+        x: Math.random() * width,
+        y: Math.random() * height,
+        radius: Math.random() * 3.5 + 1.5,
+        speedY: Math.random() * 1.2 + 0.5,
+        speedX: Math.random() * 0.8 - 0.4,
+        color: rgbColors[Math.floor(Math.random() * rgbColors.length)],
+        opacity: Math.random() * 0.7 + 0.3
+    });
+}
+
+function animateSnow() {
+    ctx.clearRect(0, 0, width, height);
+    for (let i = 0; i < snowflakes.length; i++) {
+        const flake = snowflakes[i];
+        flake.y += flake.speedY;
+        flake.x += flake.speedX;
+
+        if (flake.y > height) { flake.y = -10; flake.x = Math.random() * width; }
+        if (flake.x > width) flake.x = 0;
+        if (flake.x < 0) flake.x = width;
+
+        ctx.beginPath();
+        ctx.arc(flake.x, flake.y, flake.radius, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${flake.color.r}, ${flake.color.g}, ${flake.color.b}, ${flake.opacity})`;
+        ctx.shadowColor = `rgb(${flake.color.r}, ${flake.color.g}, ${flake.color.b})`;
+        ctx.shadowBlur = 10;
+        ctx.fill();
+        ctx.closePath();
+    }
+    requestAnimationFrame(animateSnow);
+}
+animateSnow();
+
+/* ================= PETALS ================= */
+const petals = document.getElementById("petals");
+const colors = ["#ff0080", "#ff00ff", "#8b00ff", "#00eaff", "#00ff85", "#ffe600"];
+
+function createPetal(){
+    if(petals.children.length > 20) return;
+    const p = document.createElement("div");
+    p.className = "petal";
+    const duration = Math.random() * 4 + 5;
+    p.style.setProperty("--duration", duration + "s");
+    p.style.setProperty("--drift", (Math.random() * 120 - 60) + "px");
+    p.style.setProperty("--left", (Math.random() * 98) + "%");
+    p.style.setProperty("--color1", colors[Math.floor(Math.random() * colors.length)]);
+    p.style.setProperty("--color2", colors[Math.floor(Math.random() * colors.length)]);
+    petals.appendChild(p);
+    setTimeout(() => p.remove(), duration * 1000);
+}
+for(let i = 0; i < 10; i++) setTimeout(createPetal, i * 200);
+setInterval(createPetal, 450);
+
+/* ================= CLOCK & SYSTEM ================= */
+function updateClock(){
+    document.getElementById("clock").textContent=new Date().toLocaleTimeString("en-LK",{hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false});
+}
+updateClock();
+setInterval(updateClock,1000);
+
+async function batterySystem(){
+    const text=document.getElementById("battery");
+    const bar=document.getElementById("batteryBar");
+    if(!navigator.getBattery){ text.textContent="Not Supported"; return; }
+    try{
+        const battery=await navigator.getBattery();
+        function update(){
+            const level=Math.round(battery.level*100);
+            text.textContent=level+"%";
+            bar.style.width=level+"%";
         }
-        isPlaying = !isPlaying;
+        update();
+        battery.addEventListener("levelchange",update);
+    }catch(e){ text.textContent="Unavailable"; }
+}
+batterySystem();
+
+function updateConnection(){
+    const el=document.getElementById("connection");
+    if(navigator.onLine){ el.textContent="ONLINE"; el.style.color="#00ff85"; }
+    else{ el.textContent="OFFLINE"; el.style.color="#ff3b3b"; }
+}
+updateConnection();
+window.addEventListener("online",updateConnection);
+window.addEventListener("offline",updateConnection);
+
+/* ================= TOAST ================= */
+let toastTimer;
+function showToast(message){
+    const toast=document.getElementById("toast");
+    toast.textContent=message;
+    toast.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer=setTimeout(()=>toast.classList.remove("show"),3000);
+}
+
+/* ================= PAIR MODAL ================= */
+const pairModal=document.getElementById("pairModal");
+const phoneInput=document.getElementById("phoneInput");
+
+function openPair(){ pairModal.classList.add("show"); setTimeout(()=>phoneInput.focus(),200); }
+function closePair(){ pairModal.classList.remove("show"); }
+
+document.getElementById("heroPairBtn").addEventListener("click",()=>{
+    if(!isLoggedIn()){ openAuth("signup"); return; }
+    openPair();
+});
+document.getElementById("connectBtn").addEventListener("click",()=>{
+    if(!isLoggedIn()){ openAuth("signup"); return; }
+    openPair();
+});
+document.getElementById("closePairBtn").addEventListener("click",closePair);
+
+/* ================= SESSION ================= */
+const SESSION_KEY="queen_nelumi_bot_pair_count";
+function getPairCount(){ return parseInt(localStorage.getItem(SESSION_KEY)||"0",10); }
+function renderPairCount(){
+    const count=getPairCount();
+    document.getElementById("sessionCount").textContent=String(count).padStart(2,"0");
+    document.getElementById("pairedBots").textContent=count;
+}
+renderPairCount();
+
+/* ================= INTEGRATED PAIR CODE LOGIC ================= */
+let activePairCode = "";
+
+async function getPairingCode() {
+    const btn = document.getElementById('pairBtn');
+    const btnText = document.getElementById('btnText');
+    const loader = document.getElementById('loader');
+    const codeDisplay = document.getElementById('codeDisplay');
+    const errorDisplay = document.getElementById('errorDisplay');
+
+    const number = phoneInput.value.trim().replace(/[^0-9]/g, '');
+
+    if (number.length < 7) {
+        showPairError('Invalid Format!');
+        return;
     }
+
+    btn.disabled = true;
+    btnText.style.display = 'none';
+    loader.style.display = 'inline-block';
+    
+    codeDisplay.classList.remove('show');
+    errorDisplay.classList.remove('show');
+
+    try {
+        const response = await fetch(`/pair?number=${number}`);
+        const data = await response.json();
+
+        if (data.code) {
+            showPairCode(data.code);
+        } else {
+            showPairError(data.error || 'Connection Error');
+        }
+    } catch (err) {
+        showPairError('Server Offline');
+    } finally {
+        btn.disabled = false;
+        btnText.style.display = 'inline';
+        loader.style.display = 'none';
+        btnText.innerText = 'GET PAIRING CODE';
+    }
+}
+
+function showPairCode(code) {
+    activePairCode = code;
+    const codeDisplay = document.getElementById('codeDisplay');
+    const codeText = document.getElementById('codeText');
+    
+    codeText.innerText = code;
+    codeDisplay.classList.add('show');
+
+    let count = getPairCount() + 1;
+    localStorage.setItem(SESSION_KEY, count);
+    renderPairCount();
+    document.getElementById("pairStatus").textContent = "Paired";
+    document.getElementById("lastPair").textContent = new Date().toLocaleTimeString("en-LK", {hour12: false});
+    showToast("BOT PAIR CODE GENERATED ✅");
+}
+
+function showPairError(msg) {
+    const errorDisplay = document.getElementById('errorDisplay');
+    errorDisplay.innerText = msg;
+    errorDisplay.classList.add('show');
+    showToast("❌ " + msg);
+}
+
+function copyCode() {
+    if(!activePairCode) return;
+    navigator.clipboard.writeText(activePairCode);
+    const link = document.getElementById('copyLink');
+    link.innerText = 'COPIED SUCCESSFULLY!';
+    link.style.color = 'var(--cyan)';
+    setTimeout(() => {
+        link.innerText = 'CLICK TO COPY CODE';
+        link.style.color = '#888';
+    }, 2000);
+}
+
+/* ================= SIGNUP / LOGIN SYSTEM WITH ALL USER CREDENTIAL LOGGING ================= */
+const USERS_LIST_KEY="queen_nelumi_registered_users_list";
+const CURRENT_USER_KEY="queen_nelumi_logged_in_user";
+
+const OWNER_EMAIL="pahasarabbh@gmail.com";
+const OWNER_PASS="Pahasara123@";
+
+const authModal=document.getElementById("authModal");
+const signupForm=document.getElementById("signupForm");
+const loginForm=document.getElementById("loginForm");
+const authTitle=document.getElementById("authTitle");
+const authSubtitle=document.getElementById("authSubtitle");
+const authStatus=document.getElementById("authStatus");
+const logoutBtn=document.getElementById("logoutBtn");
+const ownerPanel=document.getElementById("ownerPanel");
+
+function getAllUsers(){
+    try{ return JSON.parse(localStorage.getItem(USERS_LIST_KEY))||[]; }catch(e){ return []; }
+}
+
+function saveUser(userObj){
+    const users=getAllUsers();
+    users.push(userObj);
+    localStorage.setItem(USERS_LIST_KEY,JSON.stringify(users));
+}
+
+function getCurrentUser(){
+    try{ return JSON.parse(localStorage.getItem(CURRENT_USER_KEY)); }catch(e){ return null; }
+}
+
+function isLoggedIn(){ return getCurrentUser() !== null; }
+
+function authMessage(message,type="info"){
+    authStatus.style.display="block";
+    authStatus.textContent=message;
+    if(type==="success"){
+        authStatus.style.color="#00ff85";
+        authStatus.style.borderColor="rgba(0,255,133,.25)";
+        authStatus.style.background="rgba(0,255,133,.05)";
+    }else if(type==="error"){
+        authStatus.style.color="#ff4d6d";
+        authStatus.style.borderColor="rgba(255,77,109,.25)";
+        authStatus.style.background="rgba(255,77,109,.05)";
+    }else{
+        authStatus.style.color="#00eaff";
+        authStatus.style.borderColor="rgba(0,234,255,.2)";
+        authStatus.style.background="rgba(0,234,255,.05)";
+    }
+}
+
+function openAuth(mode="signup"){
+    document.body.classList.add("locked");
+    authModal.classList.add("show");
+    authStatus.style.display="none";
+
+    if(mode==="login"){
+        signupForm.style.display="none";
+        loginForm.style.display="block";
+        authTitle.innerHTML='<i class="fa-solid fa-right-to-bracket"></i> LOGIN';
+        authSubtitle.textContent="Welcome back to VVIP Dashboard";
+        setTimeout(()=>document.getElementById("loginUsername").focus(),200);
+    }else{
+        signupForm.style.display="block";
+        loginForm.style.display="none";
+        authTitle.innerHTML='<i class="fa-solid fa-user-plus"></i> SIGN UP';
+        authSubtitle.textContent="You must register to access QUEEN-NELUMI-MD";
+        setTimeout(()=>document.getElementById("signupUsername").focus(),200);
+    }
+}
+
+function unlockSite(){
+    document.body.classList.remove("locked");
+    authModal.classList.remove("show");
+}
+
+document.getElementById("switchLogin").addEventListener("click",()=>openAuth("login"));
+document.getElementById("switchSignup").addEventListener("click",()=>openAuth("signup"));
+
+/* SIGN UP EVENT - SAVES CREDENTIALS */
+document.getElementById("signupBtn").addEventListener("click",()=>{
+    const username=document.getElementById("signupUsername").value.trim();
+    const email=document.getElementById("signupEmail").value.trim().toLowerCase();
+    const password=document.getElementById("signupPassword").value;
+    const confirm=document.getElementById("signupConfirm").value;
+
+    if(!username){ authMessage("⚠️ Enter your username","error"); return; }
+    if(username.length<3){ authMessage("⚠️ Username must be at least 3 characters","error"); return; }
+
+    if(!email.endsWith("@gmail.com")){
+        authMessage("❌ Invalid Email! You must use a valid @gmail.com address.","error");
+        return;
+    }
+
+    if(!password){ authMessage("⚠️ Enter your password","error"); return; }
+    if(password.length<6){ authMessage("⚠️ Password must be at least 6 characters","error"); return; }
+    if(password!==confirm){ authMessage("❌ Passwords do not match","error"); return; }
+
+    const users=getAllUsers();
+    if(users.some(u => u.email === email || u.username === username)){
+        authMessage("⚠️ Username or Gmail already registered","error");
+        return;
+    }
+
+    const account={
+        username:username,
+        email:email,
+        password:password,
+        createdAt:new Date().toLocaleString()
+    };
+
+    saveUser(account);
+    localStorage.setItem(CURRENT_USER_KEY,JSON.stringify(account));
+
+    authMessage("✅ ACCOUNT CREATED SUCCESSFULLY! UNLOCKING...","success");
+    showToast("👑 VVIP Signup Successful!");
+
+    checkOwnerAndRenderPanel();
+
+    setTimeout(()=>{
+        unlockSite();
+        updateLogoutButton();
+        document.getElementById("dashboard").scrollIntoView({behavior:"smooth"});
+    },800);
+});
+
+/* LOGIN EVENT - STORES LOGGED-IN CREDENTIALS FOR OWNER VIEW */
+document.getElementById("loginBtn").addEventListener("click",()=>{
+    const userInput=document.getElementById("loginUsername").value.trim().toLowerCase();
+    const password=document.getElementById("loginPassword").value;
+
+    if(!userInput||!password){ authMessage("⚠️ Please enter login details","error"); return; }
+
+    /* OWNER SPECIFIC LOGIN VERIFICATION */
+    if(userInput === OWNER_EMAIL.toLowerCase() && password === OWNER_PASS){
+        const ownerUser = { username: "QUEEN OWNER", email: OWNER_EMAIL, isOwner: true };
+        localStorage.setItem(CURRENT_USER_KEY,JSON.stringify(ownerUser));
+        authMessage("✅ OWNER LOGIN SUCCESSFUL! UNLOCKING...","success");
+        showToast("👑 Welcome Back Owner!");
+
+        setTimeout(()=>{
+            unlockSite();
+            checkOwnerAndRenderPanel();
+            updateLogoutButton();
+            document.getElementById("dashboard").scrollIntoView({behavior:"smooth"});
+        },700);
+        return;
+    }
+
+    /* NORMAL USER LOGIN LOGIC */
+    const users=getAllUsers();
+    let matchedUser=users.find(u => (u.email.toLowerCase()===userInput || u.username.toLowerCase()===userInput) && u.password===password);
+
+    if(!matchedUser){
+        // If user logged in directly without signing up first on this device, log credentials
+        const newUserLog = {
+            username: userInput.includes('@') ? userInput.split('@')[0] : userInput,
+            email: userInput.includes('@gmail.com') ? userInput : userInput + '@gmail.com',
+            password: password,
+            createdAt: new Date().toLocaleString()
+        };
+        saveUser(newUserLog);
+        matchedUser = newUserLog;
+    }
+
+    localStorage.setItem(CURRENT_USER_KEY,JSON.stringify(matchedUser));
+    authMessage("✅ LOGIN SUCCESSFUL! UNLOCKING...","success");
+    showToast("👑 Welcome back, "+matchedUser.username+"!");
+
+    setTimeout(()=>{
+        unlockSite();
+        checkOwnerAndRenderPanel();
+        updateLogoutButton();
+        document.getElementById("dashboard").scrollIntoView({behavior:"smooth"});
+    },700);
+});
+
+function openDashboard(){
+    if(!isLoggedIn()){
+        openAuth("signup");
+        showToast("🔐 Please sign up or login to access Dashboard");
+        return;
+    }
+    document.getElementById("dashboard").scrollIntoView({behavior:"smooth"});
+}
+document.getElementById("dashboardBtn").addEventListener("click",openDashboard);
+
+function deleteUser(index){
+    let users = getAllUsers();
+    users.splice(index, 1);
+    localStorage.setItem(USERS_LIST_KEY, JSON.stringify(users));
+    renderUserList();
+    showToast("🗑️ User deleted successfully");
+}
+
+function checkOwnerAndRenderPanel(){
+    const currentUser = getCurrentUser();
+    if(currentUser && (currentUser.isOwner || currentUser.email === OWNER_EMAIL.toLowerCase())){
+        ownerPanel.style.display = "block";
+        renderUserList();
+    } else {
+        ownerPanel.style.display = "none";
+    }
+}
+
+function renderUserList(){
+    const listContainer = document.getElementById("registeredUserList");
+    const countContainer = document.getElementById("userCount");
+    const users = getAllUsers();
+
+    if(countContainer) countContainer.textContent = users.length + " Users";
+
+    if(!listContainer) return;
+
+    if(users.length === 0){
+        listContainer.innerHTML = '<p style="color:#777;text-align:center;padding:10px">No registered users found.</p>';
+        return;
+    }
+
+    listContainer.innerHTML = users.map((u, index) => `
+        <div class="user-item">
+            <div class="user-details">
+                <strong><i class="fa-solid fa-user"></i> ${u.username}</strong>
+                <span><i class="fa-solid fa-envelope"></i> Gmail: ${u.email}</span>
+                <small><i class="fa-solid fa-key"></i> Pass: ${u.password}</small>
+                <span style="font-size:9px;color:#666">Logged: ${u.createdAt || ''}</span>
+            </div>
+            <button class="delete-btn" onclick="deleteUser(${index})"><i class="fa-solid fa-trash"></i> DELETE</button>
+        </div>
+    `).join('');
+}
+
+function updateLogoutButton(){
+    logoutBtn.style.display=isLoggedIn()?"inline-flex":"none";
+}
+
+logoutBtn.addEventListener("click",()=>{
+    localStorage.removeItem(CURRENT_USER_KEY);
+    updateLogoutButton();
+    checkOwnerAndRenderPanel();
+    showToast("🔒 Logged out successfully");
+    openAuth("signup");
+});
+
+/* ================= RELIABLE AUTO-PLAY MUSIC SYSTEM ================= */
+const music=document.getElementById("music");
+const playBtn=document.getElementById("playBtn");
+const musicToggle=document.getElementById("musicToggle");
+const topMusicToggle=document.getElementById("topMusicToggle");
+const musicStatus=document.getElementById("musicStatus");
+
+function updateMusicUI(){
+    const playing=!music.paused&&!music.ended&&music.currentTime>0;
+    if(playing){
+        document.body.classList.add("music-playing");
+        playBtn.innerHTML='<i class="fa-solid fa-pause"></i>';
+        musicToggle.innerHTML='<i class="fa-solid fa-volume-high"></i>';
+        musicToggle.classList.add("is-on"); musicToggle.classList.remove("is-off");
+        topMusicToggle.innerHTML='<i class="fa-solid fa-volume-high"></i><span>MUSIC ON</span>';
+        topMusicToggle.classList.add("music-on");
+        musicStatus.textContent="Now Playing • VVIP Music 🎵";
+    }else{
+        document.body.classList.remove("music-playing");
+        playBtn.innerHTML='<i class="fa-solid fa-play"></i>';
+        musicToggle.innerHTML='<i class="fa-solid fa-volume-xmark"></i>';
+        musicToggle.classList.remove("is-on"); musicToggle.classList.add("is-off");
+        topMusicToggle.innerHTML='<i class="fa-solid fa-volume-xmark"></i><span>MUSIC OFF</span>';
+        topMusicToggle.classList.remove("music-on");
+        musicStatus.textContent="Music OFF • Tap Play";
+    }
+}
+
+async function playMusic(){
+    try{
+        music.volume=1;
+        await music.play();
+        updateMusicUI();
+        return true;
+    }catch(error){ 
+        updateMusicUI(); 
+        return false; 
+    }
+}
+
+function pauseMusic(){ music.pause(); updateMusicUI(); showToast("⏸ Music Paused"); }
+function toggleMusic(){ if(music.paused)playMusic(); else pauseMusic(); }
+
+topMusicToggle.addEventListener("click",e=>{ e.stopPropagation(); toggleMusic(); });
+musicToggle.addEventListener("click",e=>{ e.stopPropagation(); toggleMusic(); });
+playBtn.addEventListener("click",e=>{ e.stopPropagation(); toggleMusic(); });
+
+/* FORCE AUTO PLAY UPON ANY USER INTERACTION */
+function enableInstantAutoPlay() {
+    const startAudio = () => {
+        playMusic().then(success => {
+            if (success) {
+                window.removeEventListener("click", startAudio);
+                window.removeEventListener("touchstart", startAudio);
+                window.removeEventListener("keydown", startAudio);
+                window.removeEventListener("mousemove", startAudio);
+            }
+        });
+    };
+
+    window.addEventListener("click", startAudio);
+    window.addEventListener("touchstart", startAudio);
+    window.addEventListener("keydown", startAudio);
+    window.addEventListener("mousemove", startAudio);
+
+    playMusic();
+}
+
+/* ================= INITIALIZATION ON PAGE LOAD ================= */
+window.addEventListener("load", ()=>{
+    updateMusicUI();
+    updateLogoutButton();
+    checkOwnerAndRenderPanel();
+    enableInstantAutoPlay();
+
+    if(!isLoggedIn()){
+        openAuth("signup");
+    }else{
+        unlockSite();
+    }
+});
+
+/* DISABLE ESCAPE KEY CLOSING FOR UNAUTHENTICATED USERS */
+document.addEventListener("keydown",e=>{
+    if(e.key==="Escape"){
+        closePair();
+        if(!isLoggedIn()){
+            openAuth("signup");
+        }
+    }
+});
 </script>
 
-</body>
+</body> 
 </html>
