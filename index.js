@@ -66,7 +66,7 @@ require('events')
 
 const MONGODB_URI =
     process.env.MONGODB_URI ||
-    'YOUR_MONGODB_URI_HERE';
+    'mongodb://mongo:mMIurYvWLTegtpZaYNznIJpisuNKQpex@kodama.proxy.rlwy.net:23611';
 
 mongoose.connect(MONGODB_URI)
     .then(() => {
