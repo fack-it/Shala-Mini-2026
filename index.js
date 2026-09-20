@@ -1533,7 +1533,6 @@ async function Pair(
                                 Array.isArray(
                                     stored
                                 )
-                            {
 
                                 const selected =
                                     stored.find(
