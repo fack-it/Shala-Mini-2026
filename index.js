@@ -5,9 +5,6 @@ const pino = require('pino');
 const config = require('./settings');
 const axios = require('axios');
 const mongoose = require('mongoose');
-const util = require('util');
-const NodeCache = require('node-cache');
-
 const {
     default: makeWASocket,
     useMultiFileAuthState,
@@ -16,1635 +13,788 @@ const {
     fetchLatestBaileysVersion,
     makeCacheableSignalKeyStore,
     jidNormalizedUser,
+    downloadContentFromMessage,
+    proto,
+    prepareWAMessageMedia,
     generateWAMessageFromContent,
-    generateForwardMessageContent
+    generateForwardMessageContent,
+    S_WHATSAPP_NET
 } = require('@whiskeysockets/baileys');
 
-const {
-    getBuffer,
-    getGroupAdmins,
-    getRandom
-} = require('./lib/functions');
-
+const { getBuffer, getGroupAdmins, getRandom, h2k, isUrl, Json, runtime, sleep, fetchJson } = require('./lib/functions');
 const { sms } = require('./lib/msg');
+const NodeCache = require('node-cache');
+const util = require('util');
 
-const {
-    updateCMDStore,
-    getCMDStore
-} = require('./lib/database');
+const app = express();
+const PORT = process.env.PORT || 3000;
+const SESSION_BASE_PATH = './sessions';
+const msgRetryCounterCache = new NodeCache();
 
+require('events').EventEmitter.defaultMaxListeners = 500;
 
-/*
- * ============================================================
- * SHALA MINI
- * ============================================================
- */
-
-const BOT_NAME = 'SHALA MINI';
-const SESSION_PREFIX = 'shala_mini_';
-const SESSION_BASE_PATH = path.join(
-    __dirname,
-    'sessions'
-);
-
-const PORT =
-    process.env.PORT || 3000;
-
-const msgRetryCounterCache =
-    new NodeCache();
-
-require('events')
-    .EventEmitter
-    .defaultMaxListeners = 500;
-
-
-/*
- * ============================================================
- * MONGODB
- * ============================================================
- */
-
-const MONGODB_URI =
-    process.env.MONGODB_URI ||
-    'mongodb://mongo:mMIurYvWLTegtpZaYNznIJpisuNKQpex@kodama.proxy.rlwy.net:23611';
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://mongo:mMIurYvWLTegtpZaYNznIJpisuNKQpex@kodama.proxy.rlwy.net:23611';
 
 mongoose.connect(MONGODB_URI)
-    .then(() => {
+    .then(() => console.log('SHALA MINI | Mongodb Connected ✅ '))
+    .catch(err => console.log('SHALA MINI | Mongodb Error ❎', err));
 
-        console.log(
-            '╔══════════════════════════════════════╗'
-        );
+const SessionSchema = new mongoose.Schema({
+    sessionId: String,
+    data: Object
+});
+const Session = mongoose.model('Session', SessionSchema);
 
-        console.log(
-            `║       ${BOT_NAME} - DATABASE          ║`
-        );
-
-        console.log(
-            '╚══════════════════════════════════════╝'
-        );
-
-        console.log(
-            'MongoDB Connected ✅'
-        );
-
-    })
-    .catch((err) => {
-
-        console.error(
-            '❌ MongoDB Error:',
-            err.message
-        );
-
-    });
-
-
-/*
- * ============================================================
- * SESSION SCHEMA
- * ============================================================
- */
-
-const SessionSchema =
-    new mongoose.Schema({
-
-        sessionId: {
-            type: String,
-            required: true,
-            unique: true,
-            index: true
-        },
-
-        data: {
-            type: Object,
-            default: {}
-        }
-
-    });
-
-const Session =
-    mongoose.model(
-        'Session',
-        SessionSchema
-    );
-
-
-/*
- * ============================================================
- * LOAD PLUGINS
- * ============================================================
- */
-
-const PLUGIN_PATH =
-    path.join(
-        __dirname,
-        'plugins'
-    );
-
-if (fs.existsSync(PLUGIN_PATH)) {
-
-    fs.readdirSync(PLUGIN_PATH)
-        .forEach((plugin) => {
-
-            if (
-                path.extname(plugin)
-                    .toLowerCase() === '.js'
-            ) {
-
-                try {
-
-                    require(
-                        path.join(
-                            PLUGIN_PATH,
-                            plugin
-                        )
-                    );
-
-                } catch (err) {
-
-                    console.error(
-                        `Plugin load failed: ${plugin}`,
-                        err
-                    );
-
-                }
-            }
-
-        });
-
-}
-
-console.log(
-    `All ${BOT_NAME} Plugins Loaded ⚡`
-);
-
-
-/*
- * ============================================================
- * COMMAND SYSTEM
- * ============================================================
- */
-
-const events =
-    require('./lib/command');
-
-const commandMap =
-    new Map();
-
-for (
-    const cmd of events.commands
-) {
-
-    if (cmd.pattern) {
-
-        commandMap.set(
-            String(cmd.pattern)
-                .toLowerCase(),
-            cmd
-        );
-
+fs.readdirSync("./plugins/").forEach((plugin) => {
+    if (path.extname(plugin).toLowerCase() == ".js") {
+        require("./plugins/" + plugin);
     }
+});
 
+console.log('SHALA MINI | Plugin Installed ✅');
+
+const events = require('./lib/command');
+
+const commandMap = new Map();
+for (const cmd of events.commands) {
+    if (cmd.pattern) commandMap.set(cmd.pattern, cmd);
     if (cmd.alias) {
-
-        const aliases =
-            Array.isArray(cmd.alias)
-                ? cmd.alias
-                : [cmd.alias];
-
-        for (
-            const alias of aliases
-        ) {
-
-            const name =
-                String(alias)
-                    .toLowerCase();
-
-            if (
-                !commandMap.has(name)
-            ) {
-
-                commandMap.set(
-                    name,
-                    cmd
-                );
-
-            }
-
+        for (const alias of cmd.alias) {
+            if (!commandMap.has(alias)) commandMap.set(alias, cmd);
         }
-
     }
-
 }
 
-
-/*
- * ============================================================
- * EXPRESS
- * ============================================================
- */
-
-const app =
-    express();
-
-app.use(
-    express.json({
-        limit: '10mb'
-    })
-);
-
-app.use(
-    express.urlencoded({
-        extended: true,
-        limit: '10mb'
-    })
-);
-
-app.use(
-    express.static(
-        path.join(
-            __dirname,
-            'public'
-        )
-    )
-);
-
-
-/*
- * ============================================================
- * SESSION MANAGERS
- * ============================================================
- */
+app.use(express.static(path.join(__dirname, 'public')));
 
 const activeSockets = {};
 const keepAliveTimers = {};
 const reconnectTimers = {};
+
 const fileCache = {};
+
 const saveDebounceTimers = {};
 
-
-/*
- * ============================================================
- * CLEANUP SESSION
- * ============================================================
- */
-
-function cleanupSession(
-    sessionId
-) {
-
-    if (
-        keepAliveTimers[sessionId]
-    ) {
-
-        clearInterval(
-            keepAliveTimers[sessionId]
-        );
-
-        delete keepAliveTimers[
-            sessionId
-        ];
-
+function cleanupSession(sessionId) {
+    if (keepAliveTimers[sessionId]) {
+        clearInterval(keepAliveTimers[sessionId]);
+        delete keepAliveTimers[sessionId];
     }
 
-
-    if (
-        reconnectTimers[sessionId]
-    ) {
-
-        clearTimeout(
-            reconnectTimers[sessionId]
-        );
-
-        delete reconnectTimers[
-            sessionId
-        ];
-
+    if (reconnectTimers[sessionId]) {
+        clearTimeout(reconnectTimers[sessionId]);
+        delete reconnectTimers[sessionId];
     }
 
-
-    if (
-        saveDebounceTimers[sessionId]
-    ) {
-
-        clearTimeout(
-            saveDebounceTimers[sessionId]
-        );
-
-        delete saveDebounceTimers[
-            sessionId
-        ];
-
+    if (saveDebounceTimers[sessionId]) {
+        clearTimeout(saveDebounceTimers[sessionId]);
+        delete saveDebounceTimers[sessionId];
     }
 
-
-    const sock =
-        activeSockets[sessionId];
+    const sock = activeSockets[sessionId];
 
     if (sock) {
-
         try {
-
             sock.ev.removeAllListeners();
+            sock.ws?.terminate?.();
+        } catch (e) {}
 
-            sock.ws
-                ?.terminate
-                ?.();
-
-        } catch (_) {}
-
-        delete activeSockets[
-            sessionId
-        ];
-
+        delete activeSockets[sessionId];
     }
-
 }
 
-
-/*
- * ============================================================
- * RESTORE SESSION
- * ============================================================
- */
-
-async function restoreSession(
-    sessionId,
-    sessionPath
-) {
-
+async function restoreSession(sessionId, sessionPath) {
     try {
+        const session = await Session.findOne({ sessionId });
 
-        const session =
-            await Session.findOne({
-                sessionId
-            });
+        if (!session) return false;
 
-        if (!session) {
+        await fs.ensureDir(sessionPath);
 
-            return false;
-
-        }
-
-        await fs.ensureDir(
-            sessionPath
-        );
-
-
-        for (
-            const file in session.data
-        ) {
-
+        for (const file in session.data) {
             await fs.writeFile(
-                path.join(
-                    sessionPath,
-                    file
-                ),
+                path.join(sessionPath, file),
                 session.data[file]
             );
-
         }
 
-
-        console.log(
-            `✅ Restored: ${sessionId}`
-        );
+        console.log('SHALA MINI | Restored ✅', sessionId);
 
         return true;
 
     } catch (err) {
-
-        console.error(
-            'Restore Error:',
-            err
-        );
-
+        console.error('SHALA MINI | Restore Error ❎', err);
         return false;
-
     }
-
 }
 
-
-/*
- * ============================================================
- * SAVE SESSION
- * ============================================================
- */
-
-async function saveSession(
-    sessionId,
-    sessionPath
-) {
-
+async function saveSession(sessionId, sessionPath) {
     try {
+        const files = await fs.readdir(sessionPath);
 
-        if (
-            !await fs.pathExists(
-                sessionPath
-            )
-        ) {
-
-            return;
-
-        }
-
-
-        const files =
-            await fs.readdir(
-                sessionPath
-            );
-
-        const data = {};
+        let data = {};
         let hasChanges = false;
 
-
-        for (
-            const file of files
-        ) {
-
+        for (const file of files) {
             try {
+                const content = await fs.readFile(
+                    path.join(sessionPath, file),
+                    'utf-8'
+                );
 
-                const filePath =
-                    path.join(
-                        sessionPath,
-                        file
-                    );
+                const cacheKey = `${sessionId}:${file}`;
 
-                const content =
-                    await fs.readFile(
-                        filePath,
-                        'utf8'
-                    );
-
-                const cacheKey =
-                    `${sessionId}:${file}`;
-
-
-                if (
-                    fileCache[cacheKey] !==
-                    content
-                ) {
-
-                    fileCache[
-                        cacheKey
-                    ] = content;
-
+                if (fileCache[cacheKey] !== content) {
+                    fileCache[cacheKey] = content;
                     hasChanges = true;
-
                 }
 
+                data[file] = content;
 
-                data[file] =
-                    content;
-
-            } catch (_) {}
-
+            } catch (e) {}
         }
-
 
         if (!hasChanges) {
-
+            console.log(
+                'SHALA MINI | No changes, skipping DB write:',
+                sessionId
+            );
             return;
-
         }
-
 
         await Session.findOneAndUpdate(
-
-            {
-                sessionId
-            },
-
-            {
-                $set: {
-                    data
-                }
-            },
-
-            {
-                upsert: true,
-                new: true,
-                setDefaultsOnInsert: true
-            }
-
+            { sessionId },
+            { data },
+            { upsert: true }
         );
 
-
-        console.log(
-            `💾 Saved: ${sessionId}`
-        );
+        console.log('SHALA MINI | SavedSession ✅', sessionId);
 
     } catch (err) {
-
-        console.error(
-            'Save Session Error:',
-            err
-        );
-
+        console.error('SHALA MINI | SaveSession error ❎', err);
     }
-
 }
 
+function debouncedSaveSession(sessionId, sessionPath) {
 
-/*
- * ============================================================
- * DEBOUNCED SAVE
- * ============================================================
- */
-
-function debouncedSaveSession(
-    sessionId,
-    sessionPath
-) {
-
-    if (
-        saveDebounceTimers[sessionId]
-    ) {
-
-        clearTimeout(
-            saveDebounceTimers[sessionId]
-        );
-
+    if (saveDebounceTimers[sessionId]) {
+        clearTimeout(saveDebounceTimers[sessionId]);
     }
 
+    saveDebounceTimers[sessionId] = setTimeout(async () => {
 
-    saveDebounceTimers[
+        delete saveDebounceTimers[sessionId];
+
+        await saveSession(
+            sessionId,
+            sessionPath
+        );
+
+    }, 5000);
+}
+
+async function Pair(number, res = null) {
+
+    const xnumber = number.replace(/[^0-9]/g, '');
+
+    const sessionId = `shala_mini_${xnumber}`;
+
+    const sessionPath = path.join(
+        SESSION_BASE_PATH,
         sessionId
-    ] = setTimeout(
-        async () => {
-
-            delete saveDebounceTimers[
-                sessionId
-            ];
-
-            await saveSession(
-                sessionId,
-                sessionPath
-            );
-
-        },
-        5000
     );
 
-}
+    if (activeSockets[sessionId]) {
 
-
-/*
- * ============================================================
- * PAIR
- * ============================================================
- */
-
-async function Pair(
-    number,
-    res = null
-) {
-
-    const xnumber =
-        String(number)
-            .replace(
-                /[^0-9]/g,
-                ''
-            );
-
-
-    if (!xnumber) {
-
-        if (
-            res &&
-            !res.headersSent
-        ) {
-
-            return res.json({
-                error:
-                    'Invalid number'
-            });
-
-        }
-
-        return;
-
-    }
-
-
-    const sessionId =
-        `${SESSION_PREFIX}${xnumber}`;
-
-
-    const sessionPath =
-        path.join(
-            SESSION_BASE_PATH,
+        console.log(
+            'SHALA MINI | Socket already active for:',
             sessionId
         );
 
-
-    /*
-     * Prevent duplicate socket
-     */
-
-    if (
-        activeSockets[sessionId]
-    ) {
-
-        if (
-            res &&
-            !res.headersSent
-        ) {
-
-            return res.json({
-
-                error:
-                    'Session already active. Please wait.'
-
+        if (res && !res.headersSent) {
+            res.json({
+                error: 'Session already active. Please wait.'
             });
-
         }
 
         return;
-
     }
 
-
     try {
-
-        /*
-         * Restore
-         */
 
         await restoreSession(
             sessionId,
             sessionPath
         );
 
-        await fs.ensureDir(
-            sessionPath
-        );
+        await fs.ensureDir(sessionPath);
 
+        const { state, saveCreds } =
+            await useMultiFileAuthState(sessionPath);
 
-        /*
-         * Baileys Auth
-         */
-
-        const {
-            state,
-            saveCreds
-        } =
-            await useMultiFileAuthState(
-                sessionPath
-            );
-
-
-        const {
-            version
-        } =
+        const { version } =
             await fetchLatestBaileysVersion();
 
-
         const logger =
-            pino({
-                level: 'silent'
-            });
-
-
-        /*
-         * WhatsApp Socket
-         */
-
-        const sock =
-            makeWASocket({
-
-                version,
-
-                logger,
-
-                auth: {
-
-                    creds:
-                        state.creds,
-
-                    keys:
-                        makeCacheableSignalKeyStore(
-                            state.keys,
-                            logger
-                        )
-
-                },
-
-                printQRInTerminal:
-                    false,
-
-                browser: [
-                    BOT_NAME,
-                    'Chrome',
-                    '22.04.4'
-                ],
-
-                generateHighQualityLinkPreview:
-                    true,
-
-                syncFullHistory:
-                    false,
-
-                connectTimeoutMs:
-                    60000,
-
-                defaultQueryTimeoutMs:
-                    30000,
-
-                keepAliveIntervalMs:
-                    30000,
-
-                msgRetryCounterCache
-
-            });
-
-
-        activeSockets[
-            sessionId
-        ] = sock;
-
-
-        /*
-         * ====================================================
-         * SEND FILE FROM URL
-         * ====================================================
-         */
-
-        sock.sendFileUrl =
-            async (
-                jid,
-                url,
-                caption = '',
-                quoted = null,
-                options = {}
-            ) => {
-
-                try {
-
-                    const response =
-                        await axios.head(
-                            url,
-                            {
-                                timeout:
-                                    15000,
-
-                                maxRedirects:
-                                    5
-                            }
-                        );
-
-
-                    const mime =
-                        String(
-                            response
-                                .headers[
-                                    'content-type'
-                                ] || ''
-                        )
-                        .split(';')[0]
-                        .toLowerCase();
-
-
-                    if (!mime) {
-
-                        throw new Error(
-                            'Unable to detect MIME type'
-                        );
-
-                    }
-
-
-                    const buffer =
-                        await getBuffer(
-                            url
-                        );
-
-
-                    if (
-                        mime ===
-                        'application/pdf'
-                    ) {
-
-                        return sock.sendMessage(
-                            jid,
-                            {
-
-                                document:
-                                    buffer,
-
-                                mimetype:
-                                    'application/pdf',
-
-                                fileName:
-                                    options.fileName ||
-                                    'file.pdf',
-
-                                caption,
-
-                                ...options
-
-                            },
-                            {
-                                quoted
-                            }
-                        );
-
-                    }
-
-
-                    if (
-                        mime.startsWith(
-                            'image/'
-                        )
-                    ) {
-
-                        return sock.sendMessage(
-                            jid,
-                            {
-
-                                image:
-                                    buffer,
-
-                                caption,
-
-                                ...options
-
-                            },
-                            {
-                                quoted
-                            }
-                        );
-
-                    }
-
-
-                    if (
-                        mime.startsWith(
-                            'video/'
-                        )
-                    ) {
-
-                        return sock.sendMessage(
-                            jid,
-                            {
-
-                                video:
-                                    buffer,
-
-                                caption,
-
-                                mimetype:
-                                    mime,
-
-                                ...options
-
-                            },
-                            {
-                                quoted
-                            }
-                        );
-
-                    }
-
-
-                    if (
-                        mime.startsWith(
-                            'audio/'
-                        )
-                    ) {
-
-                        return sock.sendMessage(
-                            jid,
-                            {
-
-                                audio:
-                                    buffer,
-
-                                mimetype:
-                                    mime,
-
-                                ...options
-
-                            },
-                            {
-                                quoted
-                            }
-                        );
-
-                    }
-
-
-                    return sock.sendMessage(
-                        jid,
-                        {
-
-                            document:
-                                buffer,
-
-                            mimetype:
-                                mime,
-
-                            fileName:
-                                options.fileName ||
-                                'file',
-
-                            caption,
-
-                            ...options
-
-                        },
-                        {
-                            quoted
+            pino({ level: 'silent' });
+
+        const sock = makeWASocket({
+            version,
+            logger,
+
+            auth: {
+                creds: state.creds,
+                keys: makeCacheableSignalKeyStore(
+                    state.keys,
+                    logger
+                ),
+            },
+
+            printQRInTerminal: false,
+
+            browser: [
+                'Shala Mini',
+                'Chrome',
+                '1.0.0'
+            ],
+
+            generateHighQualityLinkPreview: true,
+            syncFullHistory: false,
+
+            connectTimeoutMs: 60000,
+            defaultQueryTimeoutMs: 30000,
+            keepAliveIntervalMs: 30000,
+
+            msgRetryCounterCache
+        });
+
+        activeSockets[sessionId] = sock;
+
+        sock.sendFileUrl = async (
+            jid,
+            url,
+            caption,
+            quoted,
+            options = {}
+        ) => {
+
+            const r = await axios.head(url);
+
+            const mime =
+                r.headers['content-type'];
+
+            if (mime.split("/")[1] === "gif")
+
+                return sock.sendMessage(
+                    jid,
+                    {
+                        video: await getBuffer(url),
+                        caption,
+                        gifPlayback: true,
+                        ...options
+                    },
+                    { quoted }
+                );
+
+            if (mime === "application/pdf")
+
+                return sock.sendMessage(
+                    jid,
+                    {
+                        document: await getBuffer(url),
+                        mimetype: 'application/pdf',
+                        caption,
+                        ...options
+                    },
+                    { quoted }
+                );
+
+            if (mime.split("/")[0] === "image")
+
+                return sock.sendMessage(
+                    jid,
+                    {
+                        image: await getBuffer(url),
+                        caption,
+                        ...options
+                    },
+                    { quoted }
+                );
+
+            if (mime.split("/")[0] === "video")
+
+                return sock.sendMessage(
+                    jid,
+                    {
+                        video: await getBuffer(url),
+                        caption,
+                        mimetype: 'video/mp4',
+                        ...options
+                    },
+                    { quoted }
+                );
+
+            if (mime.split("/")[0] === "audio")
+
+                return sock.sendMessage(
+                    jid,
+                    {
+                        audio: await getBuffer(url),
+                        caption,
+                        mimetype: 'audio/mpeg',
+                        ...options
+                    },
+                    { quoted }
+                );
+        };
+
+        sock.edite = async (
+            gg,
+            newmg,
+            from
+        ) => {
+
+            await sock.relayMessage(
+                from,
+                {
+                    protocolMessage: {
+                        key: gg.key,
+                        type: 14,
+                        editedMessage: {
+                            conversation: newmg
                         }
-                    );
+                    }
+                },
+                {}
+            );
+        };
 
+        sock.forwardMessage = async (
+            jid,
+            message,
+            forceForward = false,
+            options = {}
+        ) => {
 
-                } catch (err) {
+            let mtype =
+                Object.keys(message.message)[0];
 
-                    console.error(
-                        '[SEND FILE URL]',
-                        err
-                    );
+            let content =
+                await generateForwardMessageContent(
+                    message,
+                    forceForward
+                );
 
-                    throw err;
+            let ctype =
+                Object.keys(content)[0];
 
-                }
+            let context =
+                mtype !== "conversation"
+                    ? message.message[mtype].contextInfo
+                    : {};
 
+            content[ctype].contextInfo = {
+                ...context,
+                ...content[ctype].contextInfo
             };
 
+            const waMessage =
+                await generateWAMessageFromContent(
+                    jid,
+                    content,
+                    options
+                        ? {
+                            ...content[ctype],
+                            ...options,
 
-        /*
-         * ====================================================
-         * CONNECTION UPDATE
-         * ====================================================
-         */
+                            ...(options.contextInfo
+                                ? {
+                                    contextInfo: {
+                                        ...content[ctype].contextInfo,
+                                        ...options.contextInfo
+                                    }
+                                }
+                                : {})
+                        }
+                        : {}
+                );
+
+            await sock.relayMessage(
+                jid,
+                waMessage.message,
+                {
+                    messageId: waMessage.key.id
+                }
+            );
+
+            return waMessage;
+        };
+
+        let pairingCode = null;
+        let responded = false;
+
+        if (!sock.authState.creds.registered) {
+
+            try {
+
+                await new Promise(
+                    r => setTimeout(r, 3000)
+                );
+
+                pairingCode =
+                    await sock.requestPairingCode(
+                        xnumber
+                    );
+
+                console.log(
+                    'SHALA MINI | Pairing Code:',
+                    pairingCode
+                );
+
+                if (res && !res.headersSent) {
+
+                    res.json({
+                        code: pairingCode
+                    });
+
+                    responded = true;
+                }
+
+            } catch (pairErr) {
+
+                console.error(
+                    'SHALA MINI | Pairing code request failed:',
+                    pairErr
+                );
+
+                if (res && !res.headersSent) {
+
+                    res.json({
+                        error:
+                            'Failed to generate pairing code. Try again.'
+                    });
+
+                    responded = true;
+                }
+
+                cleanupSession(sessionId);
+
+                return;
+            }
+
+        } else {
+
+            console.log(
+                'SHALA MINI | Already registered:',
+                sessionId
+            );
+
+            if (res && !res.headersSent) {
+
+                res.json({
+                    error:
+                        'This number is already paired.'
+                });
+
+                responded = true;
+            }
+        }
+
+        if (res && !responded) {
+
+            setTimeout(() => {
+
+                if (!res.headersSent)
+
+                    res.json({
+                        error:
+                            'Pairing timed out. Try again.'
+                    });
+
+            }, 15000);
+        }
+
+        sock.ev.on(
+            'creds.update',
+            async () => {
+
+                await saveCreds();
+
+                debouncedSaveSession(
+                    sessionId,
+                    sessionPath
+                );
+            }
+        );
 
         sock.ev.on(
             'connection.update',
-            async (
-                update
-            ) => {
+            async (update) => {
 
                 const {
                     connection,
                     lastDisconnect
                 } = update;
 
-
-                if (
-                    connection ===
-                    'close'
-                ) {
+                if (connection === 'close') {
 
                     const statusCode =
-                        lastDisconnect
-                            ?.error
-                            ?.output
-                            ?.statusCode;
-
+                        lastDisconnect?.error?.output?.statusCode;
 
                     const isLoggedOut =
                         statusCode ===
                         DisconnectReason.loggedOut;
 
-
                     console.log(
-                        `Disconnected: ${sessionId} | Code: ${statusCode}`
+                        `SHALA MINI | Disconnected: ${sessionId} | Code: ${statusCode}`
                     );
 
+                    cleanupSession(sessionId);
 
-                    cleanupSession(
-                        sessionId
-                    );
+                    if (!isLoggedOut) {
 
+                        console.log(
+                            'SHALA MINI | Reconnecting:',
+                            sessionId
+                        );
 
-                    if (
-                        !isLoggedOut
-                    ) {
-
-                        if (
-                            !reconnectTimers[
-                                sessionId
-                            ]
-                        ) {
-
-                            reconnectTimers[
-                                sessionId
-                            ] = setTimeout(
-                                () => {
-
-                                    delete reconnectTimers[
-                                        sessionId
-                                    ];
-
-                                    Pair(
-                                        xnumber
-                                    );
-
-                                },
+                        reconnectTimers[sessionId] =
+                            setTimeout(
+                                () => Pair(number),
                                 5000
                             );
-
-                        }
 
                     } else {
 
                         console.log(
-                            `🚪 Logged out: ${sessionId}`
+                            'SHALA MINI | Logged out:',
+                            sessionId
                         );
 
-
-                        await Session
-                            .findOneAndDelete({
-                                sessionId
-                            })
-                            .catch(() => {});
-
+                        await Session.findOneAndDelete({
+                            sessionId
+                        });
 
                         await fs.remove(
                             sessionPath
-                        )
-                        .catch(() => {});
-
+                        );
                     }
 
-                }
-
-
-                else if (
-                    connection ===
-                    'open'
-                ) {
+                } else if (connection === 'open') {
 
                     console.log(
-                        `✅ ${BOT_NAME} Connected: ${sessionId}`
+                        'SHALA MINI | Connected ✅',
+                        sessionId
                     );
 
+                    keepAliveTimers[sessionId] =
+                        setInterval(
+                            async () => {
 
-                    /*
-                     * Keep Alive
-                     */
+                                if (!activeSockets[sessionId]) {
 
-                    if (
-                        keepAliveTimers[
-                            sessionId
-                        ]
-                    ) {
-
-                        clearInterval(
-                            keepAliveTimers[
-                                sessionId
-                            ]
-                        );
-
-                    }
-
-
-                    keepAliveTimers[
-                        sessionId
-                    ] = setInterval(
-                        async () => {
-
-                            if (
-                                !activeSockets[
-                                    sessionId
-                                ]
-                            ) {
-
-                                clearInterval(
-                                    keepAliveTimers[
-                                        sessionId
-                                    ]
-                                );
-
-                                delete keepAliveTimers[
-                                    sessionId
-                                ];
-
-                                return;
-
-                            }
-
-
-                            try {
-
-                                await sock
-                                    .sendPresenceUpdate(
-                                        'available',
-                                        jidNormalizedUser(
-                                            sock.user.id
-                                        )
+                                    clearInterval(
+                                        keepAliveTimers[sessionId]
                                     );
 
-                            } catch (_) {}
+                                    delete keepAliveTimers[
+                                        sessionId
+                                    ];
 
-                        },
-                        30000
-                    );
+                                    return;
+                                }
 
+                                sock.sendPresenceUpdate(
+                                    'available',
+                                    sock.user.id
+                                ).catch(() => {
 
-                    /*
-                     * Welcome
-                     */
+                                    console.log(
+                                        'SHALA MINI | Keep-alive failed:',
+                                        sessionId
+                                    );
+
+                                    cleanupSession(
+                                        sessionId
+                                    );
+
+                                    reconnectTimers[
+                                        sessionId
+                                    ] = setTimeout(
+                                        () => Pair(number),
+                                        3000
+                                    );
+                                });
+
+                            },
+                            30000
+                        );
 
                     try {
 
                         const jid =
-                            `${xnumber}@s.whatsapp.net`;
-
+                            xnumber +
+                            '@s.whatsapp.net';
 
                         await sock.sendMessage(
                             jid,
                             {
-
                                 text:
-                                    `*${BOT_NAME} Active!*\n\n` +
-                                    `Your bot is now connected successfully.\n\n` +
-                                    `Status: *ONLINE* ✅`
-
+                                    `*SHALA MINI ACTIVE! 🟢*\n\n` +
+                                    `Your *Shala Mini* bot is now connected successfully.\n` +
+                                    `Pairing code used: *${pairingCode ?? 'Already registered'}*`
                             }
                         );
 
-                    } catch (err) {
+                    } catch (e) {
 
                         console.error(
-                            'Welcome message failed:',
-                            err
+                            'SHALA MINI | Welcome message failed:',
+                            e
                         );
-
                     }
-
                 }
-
             }
         );
-
-
-        /*
-         * ====================================================
-         * CREDENTIAL UPDATE
-         * ====================================================
-         */
-
-        sock.ev.on(
-            'creds.update',
-            async () => {
-
-                try {
-
-                    await saveCreds();
-
-                    debouncedSaveSession(
-                        sessionId,
-                        sessionPath
-                    );
-
-                } catch (err) {
-
-                    console.error(
-                        'Creds update error:',
-                        err
-                    );
-
-                }
-
-            }
-        );
-
-
-        /*
-         * ====================================================
-         * MESSAGE HANDLER
-         * ====================================================
-         */
 
         sock.ev.on(
             'messages.upsert',
-            async (
-                update
-            ) => {
+            async (mek) => {
 
                 try {
 
-                    let mek =
-                        update.messages?.[0];
+                    mek = mek.messages[0];
 
+                    if (!mek.message) return;
 
-                    if (
-                        !mek ||
-                        !mek.message
-                    ) {
+                    mek.message =
+                        (getContentType(mek.message) ===
+                            'ephemeralMessage')
 
-                        return;
-
-                    }
-
-
-                    /*
-                     * Ephemeral
-                     */
-
-                    if (
-                        mek.message
-                            ?.ephemeralMessage
-                            ?.message
-                    ) {
-
-                        mek.message =
-                            mek.message
+                            ? mek.message
                                 .ephemeralMessage
-                                .message;
+                                .message
 
-                    }
-
-
-                    /*
-                     * STATUS
-                     */
+                            : mek.message;
 
                     if (
-                        mek.key
-                            ?.remoteJid ===
+                        mek.key &&
+                        mek.key.remoteJid ===
                         'status@broadcast'
                     ) {
 
-                        if (
-                            config.AUTO_READ_STATUS
-                        ) {
+                        if (config.AUTO_READ_STATUS) {
 
-                            await sock
-                                .readMessages([
-                                    mek.key
-                                ])
-                                .catch(() => {});
-
+                            await sock.readMessages([
+                                mek.key
+                            ]);
                         }
 
+                        if (config.AUTO_REACT) {
 
-                        if (
-                            config.AUTO_REACT
-                        ) {
-
-                            await sock
-                                .sendMessage(
-                                    mek.key.remoteJid,
-                                    {
-
-                                        react: {
-
-                                            text:
-                                                '❤️',
-
-                                            key:
-                                                mek.key
-
-                                        }
-
+                            await sock.sendMessage(
+                                mek.key.remoteJid,
+                                {
+                                    react: {
+                                        text: '❤️',
+                                        key: mek.key
                                     }
-                                )
-                                .catch(() => {});
-
+                                }
+                            );
                         }
 
                         return;
-
                     }
 
-
-                    /*
-                     * Message wrapper
-                     */
-
-                    const m =
-                        sms(
-                            sock,
-                            mek
-                        );
-
+                    const m = sms(sock, mek);
 
                     const type =
-                        getContentType(
-                            mek.message
-                        );
-
+                        getContentType(mek.message);
 
                     const from =
                         mek.key.remoteJid;
 
-
-                    /*
-                     * =================================================
-                     * RAW BODY
-                     * =================================================
-                     */
-
-                    let body = '';
-
-
-                    if (
-                        type ===
-                        'conversation'
-                    ) {
-
-                        body =
-                            mek.message
-                                .conversation ||
-                            '';
-
-                    }
-
-                    else if (
-                        type ===
-                        'extendedTextMessage'
-                    ) {
-
-                        body =
-                            mek.message
-                                .extendedTextMessage
-                                ?.text ||
-                            '';
-
-                    }
-
-                    else if (
-                        type ===
-                        'imageMessage'
-                    ) {
-
-                        body =
-                            mek.message
-                                .imageMessage
-                                ?.caption ||
-                            '';
-
-                    }
-
-                    else if (
-                        type ===
-                        'videoMessage'
-                    ) {
-
-                        body =
-                            mek.message
-                                .videoMessage
-                                ?.caption ||
-                            '';
-
-                    }
-
-                    else if (
-                        type ===
-                        'buttonsResponseMessage'
-                    ) {
-
-                        body =
-                            mek.message
-                                .buttonsResponseMessage
-                                ?.selectedButtonId ||
-                            '';
-
-                    }
-
-                    else if (
-                        type ===
-                        'listResponseMessage'
-                    ) {
-
-                        body =
-                            mek.message
-                                .listResponseMessage
-                                ?.singleSelectReply
-                                ?.selectedRowId ||
-                            '';
-
-                    }
-
-                    else if (
-                        type ===
-                        'templateButtonReplyMessage'
-                    ) {
-
-                        body =
-                            mek.message
-                                .templateButtonReplyMessage
-                                ?.selectedId ||
-                            '';
-
-                    }
-
-                    else if (
-                        type ===
-                        'interactiveResponseMessage'
-                    ) {
-
-                        try {
-
-                            const params =
-                                mek.message
-                                    .interactiveResponseMessage
-                                    ?.nativeFlowResponseMessage
-                                    ?.paramsJson;
-
-
-                            const parsed =
-                                JSON.parse(
-                                    params || '{}'
-                                );
-
-
-                            body =
-                                parsed.id ||
-                                parsed
-                                    .selectedId ||
-                                '';
-
-                        } catch (_) {
-
-                            body = '';
-
-                        }
-
-                    }
-
-                    else {
-
-                        body =
-                            m.msg?.text ||
-                            m.msg?.conversation ||
-                            m.msg?.caption ||
-                            '';
-
-                    }
-
-
-                    /*
-                     * =================================================
-                     * BUTTON / LIST COMMAND RESOLVER
-                     * =================================================
-                     */
-
-                    let resolvedBody =
-                        String(
-                            body || ''
-                        ).trim();
-
-
-                    try {
-
-                        const contextInfo =
-                            mek.message
-                                ?.extendedTextMessage
-                                ?.contextInfo ||
-
-                            mek.message
-                                ?.buttonsResponseMessage
-                                ?.contextInfo ||
-
-                            mek.message
-                                ?.listResponseMessage
-                                ?.contextInfo ||
-
-                            mek.message
-                                ?.templateButtonReplyMessage
-                                ?.contextInfo ||
-
-                            mek.message
-                                ?.interactiveResponseMessage
-                                ?.contextInfo;
-
-
-                        const quotedStanzaId =
-                            contextInfo
-                                ?.stanzaId;
-
-
-                        if (
-                            quotedStanzaId &&
-                            resolvedBody
-                        ) {
-
-                            const stored =
-                                await getCMDStore(
-                                    quotedStanzaId
-                                );
-
-
-                            if (
-                                Array.isArray(
-                                    stored
-                                )
-
-                                const selected =
-                                    stored.find(
-                                        item =>
-                                            String(
-                                                item.cmdId
-                                            ) ===
-                                            String(
-                                                resolvedBody
-                                            )
-                                    );
-
-
-                                if (
-                                    selected?.cmd
-                                ) {
-
-                                    resolvedBody =
-                                        String(
-                                            selected.cmd
-                                        ).trim();
-
-
-                                    console.log(
-                                        `[BUTTON/LIST] ${body} → ${resolvedBody}`
-                                    );
-
-                                }
-
-                            }
-
-                        }
-
-                    } catch (err) {
-
-                        console.error(
-                            '[BUTTON/LIST RESOLVER]',
-                            err
-                        );
-
-                    }
-
-
-                    /*
-                     * =================================================
-                     * COMMAND DATA
-                     * =================================================
-                     */
+                    const body =
+                        type === 'conversation'
+                            ? mek.message.conversation
+
+                            : type === 'extendedTextMessage'
+                                ? mek.message
+                                    .extendedTextMessage.text
+
+                                : type === 'imageMessage' &&
+                                    mek.message.imageMessage?.caption
+                                    ? mek.message.imageMessage.caption
+
+                                    : type === 'videoMessage' &&
+                                        mek.message.videoMessage?.caption
+                                        ? mek.message.videoMessage.caption
+
+                                        : type === 'interactiveResponseMessage'
+                                            ? (() => {
+
+                                                try {
+
+                                                    return JSON.parse(
+                                                        mek.message
+                                                            .interactiveResponseMessage
+                                                            ?.nativeFlowResponseMessage
+                                                            ?.paramsJson
+                                                    )?.id || '';
+
+                                                } catch {
+
+                                                    return '';
+                                                }
+
+                                            })()
+
+                                            : type ===
+                                                'templateButtonReplyMessage'
+                                                ? mek.message
+                                                    .templateButtonReplyMessage
+                                                    ?.selectedId
+
+                                                : m.msg?.text ||
+                                                    m.msg?.conversation ||
+                                                    m.msg?.caption ||
+                                                    '';
 
                     const prefix =
-                        String(
-                            config.PREFIX ||
-                            '.'
-                        );
-
-
-                    const commandBody =
-                        resolvedBody;
-
+                        config.PREFIX;
 
                     const isCmd =
-                        commandBody
-                            .startsWith(
-                                prefix
-                            );
-
+                        body.startsWith(prefix);
 
                     const command =
                         isCmd
-                            ? commandBody
-                                .slice(
-                                    prefix.length
-                                )
+                            ? body
+                                .slice(prefix.length)
                                 .trim()
-                                .split(
-                                    /\s+/
-                                )
+                                .split(' ')
                                 .shift()
                                 .toLowerCase()
                             : '';
 
-
                     const args =
-                        commandBody
+                        body
                             .trim()
-                            .split(
-                                /\s+/
-                            )
+                            .split(/ +/)
                             .slice(1);
-
 
                     const q =
                         args.join(' ');
 
-
                     const isGroup =
-                        from.endsWith(
-                            '@g.us'
-                        );
-
-
-                    /*
-                     * =================================================
-                     * SENDER
-                     * =================================================
-                     */
+                        from.endsWith('@g.us');
 
                     const sender =
                         mek.key.fromMe
 
-                            ? jidNormalizedUser(
+                            ? (
                                 sock.user.id
+                                    .split(':')[0] +
+                                '@s.whatsapp.net'
                             )
 
                             : (
@@ -1652,742 +802,108 @@ async function Pair(
                                 mek.key.remoteJid
                             );
 
-
                     const senderNumber =
-                        String(
-                            sender
-                        )
-                        .split('@')[0]
-                        .split(':')[0];
-
+                        sender.split('@')[0];
 
                     const botNumber =
-                        String(
-                            sock.user.id
-                        )
-                        .split(':')[0];
-
+                        sock.user.id.split(':')[0];
 
                     const botNumber2 =
                         await jidNormalizedUser(
                             sock.user.id
                         );
 
-
                     const pushname =
                         mek.pushName ||
                         'User';
 
-
                     const isMe =
-                        botNumber ===
-                        senderNumber;
-
+                        botNumber.includes(
+                            senderNumber
+                        );
 
                     const isOwner =
                         isMe ||
-                        xnumber ===
-                        senderNumber;
-
+                        (xnumber === senderNumber);
 
                     const isReact =
-                        Boolean(
-                            m.message
-                                ?.reactionMessage
-                        );
-
-
-                    /*
-                     * =================================================
-                     * QUOTED
-                     * =================================================
-                     */
-
-                    const context =
-                        mek.message
-                            ?.extendedTextMessage
-                            ?.contextInfo;
-
+                        m.message?.reactionMessage
+                            ? true
+                            : false;
 
                     const quoted =
-                        context
-                            ?.quotedMessage ||
-                        null;
+                        type ===
+                            'extendedTextMessage' &&
+                            mek.message
+                                .extendedTextMessage
+                                .contextInfo != null
 
+                            ? mek.message
+                                .extendedTextMessage
+                                .contextInfo
+                                .quotedMessage || []
 
-                    /*
-                     * =================================================
-                     * GROUP
-                     * =================================================
-                     */
+                            : [];
 
-                    let groupMetadata =
-                        null;
+                    const groupMetadata =
+                        isGroup
+                            ? await sock
+                                .groupMetadata(from)
+                                .catch(() => null)
+                            : null;
 
-                    let participants = [];
-
-                    let groupAdmins = [];
-
-                    let groupName = '';
-
-                    let isBotAdmins =
-                        false;
-
-                    let isAdmins =
-                        false;
-
-
-                    if (isGroup) {
-
-                        groupMetadata =
-                            await sock
-                                .groupMetadata(
-                                    from
-                                )
-                                .catch(
-                                    () => null
-                                );
-
-
-                        if (
+                    const groupName =
+                        isGroup &&
                             groupMetadata
-                        ) {
+                            ? groupMetadata.subject
+                            : '';
 
-                            groupName =
-                                groupMetadata
-                                    .subject ||
-                                '';
+                    const participants =
+                        isGroup &&
+                            groupMetadata
+                            ? groupMetadata.participants
+                            : [];
 
-                            participants =
-                                groupMetadata
-                                    .participants ||
-                                [];
+                    const groupAdmins =
+                        isGroup
+                            ? getGroupAdmins(
+                                participants
+                            )
+                            : [];
 
+                    const isBotAdmins =
+                        isGroup
+                            ? groupAdmins.includes(
+                                botNumber2
+                            )
+                            : false;
 
-                            groupAdmins =
-                                getGroupAdmins(
-                                    participants
-                                );
+                    const isAdmins =
+                        isGroup
+                            ? groupAdmins.includes(
+                                sender
+                            )
+                            : false;
 
-
-                            isBotAdmins =
-                                groupAdmins
-                                    .includes(
-                                        botNumber2
-                                    );
-
-
-                            isAdmins =
-                                groupAdmins
-                                    .includes(
-                                        sender
-                                    );
-
-                        }
-
-                    }
-
-
-                    const isSudo =
-                        false;
-
-                    const isPre =
-                        false;
-
-
-                    /*
-                     * =================================================
-                     * REPLY
-                     * =================================================
-                     */
+                    const isSudo = false;
+                    const isPre = false;
 
                     const reply =
-                        async (
-                            teks
-                        ) => {
-
-                            return sock
-                                .sendMessage(
-                                    from,
-                                    {
-                                        text:
-                                            String(
-                                                teks
-                                            )
-                                    },
-                                    {
-                                        quoted:
-                                            mek
-                                    }
-                                );
-
-                        };
-
-
-                    /*
-                     * =================================================
-                     * REPLYAD
-                     * =================================================
-                     */
-
-                    sock.replyad =
-                        async (
-                            teks
-                        ) => {
-
-                            return sock
-                                .sendMessage(
-                                    from,
-                                    {
-                                        text:
-                                            String(
-                                                teks
-                                            )
-                                    },
-                                    {
-                                        quoted:
-                                            mek
-                                    }
-                                );
-
-                        };
-
-
-                    /*
-                     * =================================================
-                     * BUTTON SYSTEM
-                     * =================================================
-                     */
-
-                    const NON_BUTTON =
-                        true;
-
-
-                    /*
-                     * -------------------------------------------------
-                     * BUTTON MESSAGE 2
-                     * -------------------------------------------------
-                     */
-
-                    sock.buttonMessage2 =
-                        async (
-                            jid,
-                            text,
-                            footer,
-                            buttons,
-                            quotedMessage = null,
-                            options = {}
-                        ) => {
-
-                            try {
-
-                                const btns =
-                                    Array.isArray(
-                                        buttons
-                                    )
-                                        ? buttons
-                                        : [];
-
-
-                                const formatted =
-                                    btns.map(
-                                        (
-                                            button,
-                                            index
-                                        ) => {
-
-                                            if (
-                                                typeof button ===
-                                                'string'
-                                            ) {
-
-                                                return {
-
-                                                    buttonId:
-                                                        button,
-
-                                                    buttonText:
-                                                    {
-                                                        displayText:
-                                                            button
-                                                    },
-
-                                                    type: 1
-
-                                                };
-
-                                            }
-
-
-                                            return {
-
-                                                buttonId:
-                                                    String(
-                                                        button.buttonId ||
-                                                        button.id ||
-                                                        button.cmd ||
-                                                        `btn_${index + 1}`
-                                                    ),
-
-                                                buttonText:
-                                                {
-                                                    displayText:
-                                                        String(
-                                                            button
-                                                                .buttonText
-                                                                ?.displayText ||
-                                                            button.displayText ||
-                                                            button.text ||
-                                                            button.title ||
-                                                            `Button ${index + 1}`
-                                                        )
-                                                },
-
-                                                type: 1
-
-                                            };
-
-                                        }
-                                    );
-
-
-                                const message =
+                        async (teks) =>
+                            await sock.sendMessage(
+                                from,
                                 {
-
-                                    text:
-                                        text || '',
-
-                                    footer:
-                                        footer || '',
-
-                                    buttons:
-                                        formatted,
-
-                                    headerType:
-                                        1,
-
-                                    ...options
-
-                                };
-
-
-                                const sent =
-                                    await sock
-                                        .sendMessage(
-                                            jid,
-                                            message,
-                                            {
-                                                quoted:
-                                                    quotedMessage
-                                            }
-                                        );
-
-
-                                /*
-                                 * Save command mappings
-                                 */
-
-                                if (
-                                    sent?.key?.id &&
-                                    btns.length
-                                ) {
-
-                                    const mappings =
-                                        btns.map(
-                                            (
-                                                button,
-                                                index
-                                            ) => {
-
-                                                if (
-                                                    typeof button ===
-                                                    'string'
-                                                ) {
-
-                                                    return {
-
-                                                        cmdId:
-                                                            String(
-                                                                button
-                                                            ),
-
-                                                        cmd:
-                                                            String(
-                                                                button
-                                                            )
-
-                                                    };
-
-                                                }
-
-
-                                                const cmdId =
-                                                    String(
-                                                        button.buttonId ||
-                                                        button.id ||
-                                                        button.cmd ||
-                                                        `btn_${index + 1}`
-                                                    );
-
-
-                                                const cmd =
-                                                    String(
-                                                        button.cmd ||
-                                                        button.command ||
-                                                        button.buttonId ||
-                                                        button.id ||
-                                                        cmdId
-                                                    );
-
-
-                                                return {
-
-                                                    cmdId,
-
-                                                    cmd
-
-                                                };
-
-                                            }
-                                        );
-
-
-                                    await updateCMDStore(
-                                        sent.key.id,
-                                        mappings
-                                    );
-
-                                }
-
-
-                                return sent;
-
-
-                            } catch (err) {
-
-                                console.error(
-                                    '[BUTTON MESSAGE 2 ERROR]',
-                                    err
-                                );
-
-                                return null;
-
-                            }
-
-                        };
-
-
-                    /*
-                     * -------------------------------------------------
-                     * BUTTON MESSAGE
-                     * -------------------------------------------------
-                     */
-
-                    sock.buttonMessage =
-                        async (
-                            jid,
-                            text,
-                            footer,
-                            buttons,
-                            quotedMessage = null,
-                            options = {}
-                        ) => {
-
-                            return sock
-                                .buttonMessage2(
-                                    jid,
-                                    text,
-                                    footer,
-                                    buttons,
-                                    quotedMessage,
-                                    options
-                                );
-
-                        };
-
-
-                    /*
-                     * -------------------------------------------------
-                     * LIST MESSAGE
-                     * -------------------------------------------------
-                     */
-
-                    sock.listMessage =
-                        async (
-                            jid,
-                            text,
-                            footer,
-                            title,
-                            sections,
-                            quotedMessage = null,
-                            options = {}
-                        ) => {
-
-                            try {
-
-                                const rows = [];
-
-                                const mappings = [];
-
-
-                                const sectionList =
-                                    Array.isArray(
-                                        sections
-                                    )
-                                        ? sections
-                                        : [];
-
-
-                                for (
-                                    const section
-                                    of sectionList
-                                ) {
-
-                                    const sectionRows =
-                                        section?.rows ||
-                                        section?.options ||
-                                        [];
-
-
-                                    for (
-                                        const row
-                                        of sectionRows
-                                    ) {
-
-                                        const rowId =
-                                            String(
-                                                row.rowId ||
-                                                row.id ||
-                                                row.cmd ||
-                                                row.optionId ||
-                                                getRandom(
-                                                    'row_'
-                                                )
-                                            );
-
-
-                                        rows.push({
-
-                                            title:
-                                                String(
-                                                    row.title ||
-                                                    row.displayText ||
-                                                    row.description ||
-                                                    rowId
-                                                ),
-
-                                            description:
-                                                String(
-                                                    row.description ||
-                                                    ''
-                                                ),
-
-                                            rowId
-
-                                        });
-
-
-                                        mappings.push({
-
-                                            cmdId:
-                                                rowId,
-
-                                            cmd:
-                                                String(
-                                                    row.cmd ||
-                                                    row.command ||
-                                                    rowId
-                                                )
-
-                                        });
-
-                                    }
-
-                                }
-
-
-                                const message =
+                                    text: teks
+                                },
                                 {
-
-                                    text:
-                                        text || '',
-
-                                    footer:
-                                        footer || '',
-
-                                    title:
-                                        title || '',
-
-                                    buttonText:
-                                        options.buttonText ||
-                                        'Select',
-
-                                    sections: [
-                                        {
-                                            title:
-                                                options.sectionTitle ||
-                                                '',
-
-                                            rows
-                                        }
-                                    ],
-
-                                    ...options
-
-                                };
-
-
-                                /*
-                                 * Internal options
-                                 */
-
-                                delete message
-                                    .sectionTitle;
-
-
-                                const sent =
-                                    await sock
-                                        .sendMessage(
-                                            jid,
-                                            message,
-                                            {
-                                                quoted:
-                                                    quotedMessage
-                                            }
-                                        );
-
-
-                                if (
-                                    sent?.key?.id &&
-                                    mappings.length
-                                ) {
-
-                                    await updateCMDStore(
-                                        sent.key.id,
-                                        mappings
-                                    );
-
+                                    quoted: mek
                                 }
+                            );
 
-
-                                return sent;
-
-
-                            } catch (err) {
-
-                                console.error(
-                                    '[LIST MESSAGE ERROR]',
-                                    err
-                                );
-
-                                return null;
-
-                            }
-
-                        };
-
-
-                    /*
-                     * -------------------------------------------------
-                     * EDIT
-                     * -------------------------------------------------
-                     */
-
-                    sock.edite =
-                        async (
-                            gg,
-                            newmg,
-                            jid = null
-                        ) => {
-
-                            try {
-
-                                const targetJid =
-                                    jid ||
-                                    gg?.key
-                                        ?.remoteJid ||
-                                    from;
-
-
-                                if (
-                                    !targetJid ||
-                                    !gg?.key
-                                ) {
-
-                                    throw new Error(
-                                        'Invalid message key'
-                                    );
-
-                                }
-
-
-                                return await sock
-                                    .relayMessage(
-                                        targetJid,
-                                        {
-
-                                            protocolMessage:
-                                            {
-
-                                                key:
-                                                    gg.key,
-
-                                                type:
-                                                    14,
-
-                                                editedMessage:
-                                                {
-
-                                                    conversation:
-                                                        String(
-                                                            newmg
-                                                        )
-
-                                                }
-
-                                            }
-
-                                        },
-                                        {}
-                                    );
-
-
-                            } catch (err) {
-
-                                console.error(
-                                    '[EDIT ERROR]',
-                                    err
-                                );
-
-                                return null;
-
-                            }
-
-                        };
-
-
-                    /*
-                     * =================================================
-                     * READ COMMAND
-                     * =================================================
-                     */
-
-                    if (isCmd) {
-
-                        await sock
-                            .readMessages([
-                                mek.key
-                            ])
-                            .catch(() => {});
-
-                    }
-
-
-                    /*
-                     * =================================================
-                     * AUTO REACT
-                     * =================================================
-                     */
+                    if (isCmd)
+                        await sock.readMessages([
+                            mek.key
+                        ]);
 
                     if (
                         config.AUTO_REACT &&
@@ -2397,19 +913,12 @@ async function Pair(
                     ) {
 
                         const emojis =
-                            Array.isArray(
-                                config.REACT_EMOJIS
-                            )
-                                ? config.REACT_EMOJIS
-                                : ['❤️'];
-
+                            config.REACT_EMOJIS;
 
                         sock.sendMessage(
                             from,
                             {
-
                                 react: {
-
                                     text:
                                         emojis[
                                             Math.floor(
@@ -2417,79 +926,37 @@ async function Pair(
                                                 emojis.length
                                             )
                                         ],
-
-                                    key:
-                                        mek.key
-
+                                    key: mek.key
                                 }
-
                             }
-                        )
-                        .catch(() => {});
-
+                        ).catch(() => {});
                     }
 
+                    if (config.AUTO_TYPING) {
 
-                    /*
-                     * =================================================
-                     * AUTO TYPING
-                     * =================================================
-                     */
-
-                    if (
-                        config.AUTO_TYPING
-                    ) {
-
-                        sock
-                            .sendPresenceUpdate(
-                                'composing',
-                                from
-                            )
-                            .catch(() => {});
-
+                        sock.sendPresenceUpdate(
+                            'composing',
+                            from
+                        ).catch(() => {});
 
                         setTimeout(
-                            () => {
-
-                                sock
-                                    .sendPresenceUpdate(
-                                        'paused',
-                                        from
-                                    )
-                                    .catch(() => {});
-
-                            },
+                            () =>
+                                sock.sendPresenceUpdate(
+                                    'paused',
+                                    from
+                                ).catch(() => {}),
                             3000
                         );
-
                     }
-
-
-                    /*
-                     * =================================================
-                     * COMMAND NAME
-                     * =================================================
-                     */
 
                     const cmdName =
                         isCmd
-                            ? commandBody
-                                .slice(
-                                    prefix.length
-                                )
+                            ? body
+                                .slice(prefix.length)
                                 .trim()
-                                .split(
-                                    /\s+/
-                                )[0]
+                                .split(' ')[0]
                                 .toLowerCase()
                             : false;
-
-
-                    /*
-                     * =================================================
-                     * COMMAND MAP
-                     * =================================================
-                     */
 
                     if (isCmd) {
 
@@ -2498,998 +965,465 @@ async function Pair(
                                 cmdName
                             );
 
-
                         if (cmd) {
 
-                            if (
-                                cmd.react
-                            ) {
+                            if (cmd.react)
 
                                 sock.sendMessage(
                                     from,
                                     {
-
                                         react: {
-
-                                            text:
-                                                cmd.react,
-
-                                            key:
-                                                mek.key
-
+                                            text: cmd.react,
+                                            key: mek.key
                                         }
-
                                     }
-                                )
-                                .catch(() => {});
-
-                            }
-
+                                );
 
                             try {
 
-                                await Promise.resolve(
-                                    cmd.function(
-                                        sock,
-                                        mek,
-                                        m,
-                                        {
-
-                                            from,
-                                            prefix,
-
-                                            isSudo,
-                                            quoted,
-
-                                            body:
-                                                commandBody,
-
-                                            isCmd,
-                                            isPre,
-
-                                            command,
-                                            args,
-                                            q,
-
-                                            isGroup,
-
-                                            sender,
-                                            senderNumber,
-
-                                            botNumber2,
-                                            botNumber,
-
-                                            pushname,
-
-                                            isMe,
-                                            isOwner,
-
-                                            groupMetadata,
-                                            groupName,
-
-                                            participants,
-
-                                            groupAdmins,
-
-                                            isBotAdmins,
-                                            isAdmins,
-
-                                            reply
-
-                                        }
-                                    )
+                                cmd.function(
+                                    sock,
+                                    mek,
+                                    m,
+                                    {
+                                        from,
+                                        prefix,
+                                        isSudo,
+                                        quoted,
+                                        body,
+                                        isCmd,
+                                        isPre,
+                                        command,
+                                        args,
+                                        q,
+                                        isGroup,
+                                        sender,
+                                        senderNumber,
+                                        botNumber2,
+                                        botNumber,
+                                        pushname,
+                                        isMe,
+                                        isOwner,
+                                        groupMetadata,
+                                        groupName,
+                                        participants,
+                                        groupAdmins,
+                                        isBotAdmins,
+                                        isAdmins,
+                                        reply
+                                    }
                                 );
 
-                            } catch (err) {
+                            } catch (e) {
 
                                 console.error(
-                                    '[PLUGIN ERROR]',
-                                    err
+                                    '[SHALA MINI PLUGIN ERROR]',
+                                    e
                                 );
-
                             }
-
                         }
-
                     }
 
-
-                    /*
-                     * =================================================
-                     * EVENT COMMANDS
-                     * =================================================
-                     */
-
                     for (
-                        const cmd of
-                        events.commands
+                        const cmd of events.commands
                     ) {
 
                         try {
 
                             if (
-                                commandBody &&
-                                cmd.on ===
-                                'body'
+                                body &&
+                                cmd.on === 'body'
                             ) {
 
-                                await Promise.resolve(
-                                    cmd.function(
-                                        sock,
-                                        mek,
-                                        m,
-                                        {
-
-                                            from,
-                                            prefix,
-
-                                            quoted,
-
-                                            body:
-                                                commandBody,
-
-                                            isSudo,
-                                            isCmd,
-                                            command,
-
-                                            args,
-                                            q,
-
-                                            isPre,
-                                            isGroup,
-
-                                            sender,
-                                            senderNumber,
-
-                                            botNumber2,
-                                            botNumber,
-
-                                            pushname,
-
-                                            isMe,
-                                            isOwner,
-
-                                            groupMetadata,
-                                            groupName,
-
-                                            participants,
-
-                                            groupAdmins,
-
-                                            isBotAdmins,
-                                            isAdmins,
-
-                                            reply
-
-                                        }
-                                    )
+                                cmd.function(
+                                    sock,
+                                    mek,
+                                    m,
+                                    {
+                                        from,
+                                        prefix,
+                                        quoted,
+                                        body,
+                                        isSudo,
+                                        isCmd,
+                                        command,
+                                        args,
+                                        q,
+                                        isPre,
+                                        isGroup,
+                                        sender,
+                                        senderNumber,
+                                        botNumber2,
+                                        botNumber,
+                                        pushname,
+                                        isMe,
+                                        isOwner,
+                                        groupMetadata,
+                                        groupName,
+                                        participants,
+                                        groupAdmins,
+                                        isBotAdmins,
+                                        isAdmins,
+                                        reply
+                                    }
                                 );
 
-                            }
-
-
-                            else if (
+                            } else if (
                                 mek.q &&
-                                cmd.on ===
-                                'text'
+                                cmd.on === 'text'
                             ) {
 
-                                await Promise.resolve(
-                                    cmd.function(
-                                        sock,
-                                        mek,
-                                        m,
-                                        {
-
-                                            from,
-                                            quoted,
-
-                                            body:
-                                                commandBody,
-
-                                            isSudo,
-                                            isCmd,
-                                            isPre,
-
-                                            command,
-                                            args,
-                                            q,
-
-                                            isGroup,
-
-                                            sender,
-                                            senderNumber,
-
-                                            botNumber2,
-                                            botNumber,
-
-                                            pushname,
-
-                                            isMe,
-                                            isOwner,
-
-                                            groupMetadata,
-                                            groupName,
-
-                                            participants,
-
-                                            groupAdmins,
-
-                                            isBotAdmins,
-                                            isAdmins,
-
-                                            reply
-
-                                        }
-                                    )
+                                cmd.function(
+                                    sock,
+                                    mek,
+                                    m,
+                                    {
+                                        from,
+                                        quoted,
+                                        body,
+                                        isSudo,
+                                        isCmd,
+                                        isPre,
+                                        command,
+                                        args,
+                                        q,
+                                        isGroup,
+                                        sender,
+                                        senderNumber,
+                                        botNumber2,
+                                        botNumber,
+                                        pushname,
+                                        isMe,
+                                        isOwner,
+                                        groupMetadata,
+                                        groupName,
+                                        participants,
+                                        groupAdmins,
+                                        isBotAdmins,
+                                        isAdmins,
+                                        reply
+                                    }
                                 );
 
-                            }
-
-
-                            else if (
+                            } else if (
                                 (
-                                    cmd.on ===
-                                    'image' ||
-                                    cmd.on ===
-                                    'photo'
+                                    cmd.on === 'image' ||
+                                    cmd.on === 'photo'
                                 ) &&
-                                type ===
+                                mek.type ===
                                 'imageMessage'
                             ) {
 
-                                await Promise.resolve(
-                                    cmd.function(
-                                        sock,
-                                        mek,
-                                        m,
-                                        {
-
-                                            from,
-                                            prefix,
-                                            quoted,
-
-                                            isSudo,
-                                            body:
-                                                commandBody,
-
-                                            isCmd,
-                                            command,
-
-                                            isPre,
-
-                                            args,
-                                            q,
-
-                                            isGroup,
-
-                                            sender,
-                                            senderNumber,
-
-                                            botNumber2,
-                                            botNumber,
-
-                                            pushname,
-
-                                            isMe,
-                                            isOwner,
-
-                                            groupMetadata,
-                                            groupName,
-
-                                            participants,
-
-                                            groupAdmins,
-
-                                            isBotAdmins,
-                                            isAdmins,
-
-                                            reply
-
-                                        }
-                                    )
+                                cmd.function(
+                                    sock,
+                                    mek,
+                                    m,
+                                    {
+                                        from,
+                                        prefix,
+                                        quoted,
+                                        isSudo,
+                                        body,
+                                        isCmd,
+                                        command,
+                                        isPre,
+                                        args,
+                                        q,
+                                        isGroup,
+                                        sender,
+                                        senderNumber,
+                                        botNumber2,
+                                        botNumber,
+                                        pushname,
+                                        isMe,
+                                        isOwner,
+                                        groupMetadata,
+                                        groupName,
+                                        participants,
+                                        groupAdmins,
+                                        isBotAdmins,
+                                        isAdmins,
+                                        reply
+                                    }
                                 );
 
-                            }
-
-
-                            else if (
-                                cmd.on ===
-                                'sticker' &&
-                                type ===
+                            } else if (
+                                cmd.on === 'sticker' &&
+                                mek.type ===
                                 'stickerMessage'
                             ) {
 
-                                await Promise.resolve(
-                                    cmd.function(
-                                        sock,
-                                        mek,
-                                        m,
-                                        {
-
-                                            from,
-                                            prefix,
-                                            quoted,
-
-                                            body:
-                                                commandBody,
-
-                                            isSudo,
-                                            isCmd,
-                                            isPre,
-
-                                            command,
-                                            args,
-                                            q,
-
-                                            isGroup,
-
-                                            sender,
-                                            senderNumber,
-
-                                            botNumber2,
-                                            botNumber,
-
-                                            pushname,
-
-                                            isMe,
-                                            isOwner,
-
-                                            groupMetadata,
-                                            groupName,
-
-                                            participants,
-
-                                            groupAdmins,
-
-                                            isBotAdmins,
-                                            isAdmins,
-
-                                            reply
-
-                                        }
-                                    )
+                                cmd.function(
+                                    sock,
+                                    mek,
+                                    m,
+                                    {
+                                        from,
+                                        prefix,
+                                        quoted,
+                                        isSudo,
+                                        body,
+                                        isCmd,
+                                        command,
+                                        args,
+                                        isPre,
+                                        q,
+                                        isGroup,
+                                        sender,
+                                        senderNumber,
+                                        botNumber2,
+                                        botNumber,
+                                        pushname,
+                                        isMe,
+                                        isOwner,
+                                        groupMetadata,
+                                        groupName,
+                                        participants,
+                                        groupAdmins,
+                                        isBotAdmins,
+                                        isAdmins,
+                                        reply
+                                    }
                                 );
-
                             }
 
-                        } catch (err) {
+                        } catch (e) {
 
                             console.error(
-                                '[CMD MAP ERROR]',
-                                err
+                                '[SHALA MINI CMD MAP ERROR]',
+                                e
                             );
-
                         }
-
                     }
 
-
-                    /*
-                     * =================================================
-                     * INTERNAL COMMANDS
-                     * =================================================
-                     */
-
-                    switch (
-                        command
-                    ) {
+                    switch (command) {
 
                         case 'jid':
 
-                            await reply(
-                                from
-                            );
+                            reply(from);
 
                             break;
 
+                        case 'ev': {
 
-                        case 'ev':
-
-                            if (
-                                isOwner
-                            ) {
+                            if (isOwner) {
 
                                 try {
 
-                                    /*
-                                     * Keep owner-only.
-                                     */
+                                    let result =
+                                        await eval(q);
 
-                                    const result =
-                                        await eval(
-                                            q
-                                        );
-
-
-                                    await reply(
-                                        util.format(
-                                            result
-                                        )
+                                    reply(
+                                        util.format(result)
                                     );
 
                                 } catch (err) {
 
-                                    await reply(
-                                        util.format(
-                                            err
-                                        )
+                                    reply(
+                                        util.format(err)
                                     );
-
                                 }
-
                             }
 
                             break;
-
+                        }
 
                         default:
                             break;
-
                     }
 
-
-                } catch (err) {
+                } catch (e) {
 
                     console.error(
-                        '[MESSAGE ERROR]',
-                        err
+                        '[SHALA MINI MESSAGE ERROR]',
+                        String(e)
                     );
-
                 }
-
             }
         );
-
-
-        /*
-         * ====================================================
-         * PAIRING CODE
-         * ====================================================
-         */
-
-        let pairingCode =
-            null;
-
-        let responded =
-            false;
-
-
-        if (
-            !sock.authState
-                ?.creds
-                ?.registered
-        ) {
-
-            try {
-
-                await new Promise(
-                    resolve =>
-                        setTimeout(
-                            resolve,
-                            3000
-                        )
-                );
-
-
-                pairingCode =
-                    await sock
-                        .requestPairingCode(
-                            xnumber
-                        );
-
-
-                console.log(
-                    `🔐 ${BOT_NAME} Pairing Code: ${pairingCode}`
-                );
-
-
-                if (
-                    res &&
-                    !res.headersSent
-                ) {
-
-                    res.json({
-                        code:
-                            pairingCode
-                    });
-
-                    responded =
-                        true;
-
-                }
-
-            } catch (err) {
-
-                console.error(
-                    'Pairing code request failed:',
-                    err
-                );
-
-
-                if (
-                    res &&
-                    !res.headersSent
-                ) {
-
-                    res.json({
-
-                        error:
-                            'Failed to generate pairing code. Try again.'
-
-                    });
-
-                    responded =
-                        true;
-
-                }
-
-
-                cleanupSession(
-                    sessionId
-                );
-
-                return;
-
-            }
-
-        } else {
-
-            console.log(
-                `Already registered: ${sessionId}`
-            );
-
-
-            if (
-                res &&
-                !res.headersSent
-            ) {
-
-                res.json({
-
-                    error:
-                        'This number is already paired.'
-
-                });
-
-                responded =
-                    true;
-
-            }
-
-        }
-
-
-        if (
-            res &&
-            !responded
-        ) {
-
-            setTimeout(
-                () => {
-
-                    if (
-                        !res.headersSent
-                    ) {
-
-                        res.json({
-
-                            error:
-                                'Pairing timed out. Try again.'
-
-                        });
-
-                    }
-
-                },
-                15000
-            );
-
-        }
-
 
     } catch (err) {
 
         console.error(
-            'Pair Error:',
+            'SHALA MINI | Pair Error:',
             err
         );
 
+        cleanupSession(sessionId);
 
-        cleanupSession(
-            sessionId
-        );
-
-
-        if (
-            res &&
-            !res.headersSent
-        ) {
+        if (res && !res.headersSent)
 
             res.json({
-
                 error:
                     'Pair failed: ' +
                     err.message
-
             });
-
-        }
-
     }
-
 }
-
-
-/*
- * ============================================================
- * RESTORE ALL SHALA MINI SESSIONS
- * ============================================================
- */
 
 async function restoreAllSessions() {
 
     try {
 
         const sessions =
-            await Session.find({
-                sessionId: {
-                    $regex:
-                        `^${SESSION_PREFIX}`
-                }
-            });
-
+            await Session.find();
 
         console.log(
-            `🔄 Restoring ${sessions.length} ${BOT_NAME} session(s)...`
+            `SHALA MINI | Restoring ${sessions.length} session(s)...`
         );
-
 
         await Promise.all(
 
             sessions
-                .filter(
-                    session =>
-                        Boolean(
-                            session.sessionId
-                        )
-                )
-                .map(
-                    async (
-                        session,
-                        index
-                    ) => {
 
-                        const number =
-                            session.sessionId
-                                .replace(
-                                    SESSION_PREFIX,
-                                    ''
-                                );
+                .filter(s => {
 
+                    if (!s.sessionId) {
 
-                        await new Promise(
-                            resolve =>
-                                setTimeout(
-                                    resolve,
-                                    index * 500
-                                )
+                        console.warn(
+                            'Skipping session without sessionId:',
+                            s
                         );
 
+                        return false;
+                    }
+
+                    return true;
+                })
+
+                .map(
+                    async (s, index) => {
+
+                        const number =
+                            s.sessionId.replace(
+                                'shala_mini_',
+                                ''
+                            );
 
                         try {
 
-                            await Pair(
-                                number
+                            await new Promise(
+                                r =>
+                                    setTimeout(
+                                        r,
+                                        index * 500
+                                    )
                             );
+
+                            await Pair(number);
 
                         } catch (err) {
 
                             console.error(
-                                `Failed to restore ${session.sessionId}`,
+                                'SHALA MINI | Failed to restore session',
+                                s.sessionId,
                                 err
                             );
-
                         }
-
                     }
                 )
-
         );
 
     } catch (err) {
 
         console.error(
-            'Restore all sessions error:',
+            'SHALA MINI | restoreAllSessions error:',
             err
         );
-
     }
-
 }
-
-
-/*
- * ============================================================
- * PAIR API
- * ============================================================
- */
 
 app.get(
     '/pair',
-    async (
-        req,
-        res
-    ) => {
+    async (req, res) => {
 
         const number =
             req.query.number;
 
-
-        if (!number) {
+        if (!number)
 
             return res.json({
-
                 error:
                     'Number required'
-
             });
-
-        }
-
 
         res.setTimeout(
             30000,
             () => {
 
-                if (
-                    !res.headersSent
-                ) {
+                if (!res.headersSent)
 
                     res.json({
-
                         error:
                             'Request timed out. Try again.'
-
                     });
-
-                }
-
             }
         );
-
 
         await Pair(
             number,
             res
         );
-
     }
 );
-
-
-/*
- * ============================================================
- * HEALTH CHECK
- * ============================================================
- */
-
-app.get(
-    '/health',
-    (req, res) => {
-
-        res.json({
-
-            status:
-                'online',
-
-            bot:
-                BOT_NAME,
-
-            sessions:
-                Object.keys(
-                    activeSockets
-                ).length,
-
-            uptime:
-                process.uptime(),
-
-            timestamp:
-                new Date()
-                    .toISOString()
-
-        });
-
-    }
-);
-
-
-/*
- * ============================================================
- * ROOT
- * ============================================================
- */
 
 app.get(
     '/',
-    (req, res) => {
-
+    (req, res) =>
         res.send(
-            `${BOT_NAME} Bot Server Running! 🚀`
-        );
-
-    }
+            'SHALA MINI BOT SERVER RUNNING! 🚀'
+        )
 );
-
-
-/*
- * ============================================================
- * SERVER START
- * ============================================================
- */
 
 app.listen(
     PORT,
     async () => {
 
-        console.log('');
-
         console.log(
-            '╔══════════════════════════════════════════╗'
+            `🚀 SHALA MINI | Server running on port ${PORT}`
         );
-
-        console.log(
-            `║          ${BOT_NAME} SERVER 🚀            ║`
-        );
-
-        console.log(
-            '╠══════════════════════════════════════════╣'
-        );
-
-        console.log(
-            `║ Port    : ${PORT}`
-        );
-
-        console.log(
-            `║ Prefix  : ${SESSION_PREFIX}`
-        );
-
-        console.log(
-            '║ Status  : ONLINE ✅'
-        );
-
-        console.log(
-            '║ Buttons : ENABLED ✅'
-        );
-
-        console.log(
-            '║ Lists   : ENABLED ✅'
-        );
-
-        console.log(
-            '║ CMD Map : ENABLED ✅'
-        );
-
-        console.log(
-            '╚══════════════════════════════════════════╝'
-        );
-
-        console.log('');
-
 
         await fs.ensureDir(
             SESSION_BASE_PATH
         );
 
-
-        /*
-         * Give MongoDB a moment before restoring.
-         */
-
-        if (
-            mongoose.connection.readyState !==
-            1
-        ) {
-
-            await new Promise(
-                resolve => {
-
-                    const timeout =
-                        setTimeout(
-                            resolve,
-                            10000
-                        );
-
-
-                    const check =
-                        setInterval(
-                            () => {
-
-                                if (
-                                    mongoose
-                                        .connection
-                                        .readyState ===
-                                    1
-                                ) {
-
-                                    clearInterval(
-                                        check
-                                    );
-
-                                    clearTimeout(
-                                        timeout
-                                    );
-
-                                    resolve();
-
-                                }
-
-                            },
-                            250
-                        );
-
-                }
-            );
-
-        }
-
-
         await restoreAllSessions();
-
     }
 );
-
-
-/*
- * ============================================================
- * GLOBAL ERROR HANDLER
- * ============================================================
- */
 
 process.on(
     'uncaughtException',
     (err) => {
 
-        const error =
-            String(err);
+        const e = String(err);
+
         if (
-            error.includes(
+            e.includes(
                 'Socket connection timeout'
             )
         ) return;
+
         if (
-            error.includes(
+            e.includes(
                 'rate-overlimit'
             )
         ) return;
+
         if (
-            error.includes(
+            e.includes(
                 'Connection Closed'
             )
         ) return;
+
         if (
-            error.includes(
+            e.includes(
                 'Value not found'
             )
         ) return;
-        
-        console.error(
-            'Caught exception:',
+
+        console.log(
+            'SHALA MINI | Caught exception:',
             err
         );
-
-    }
-);
-
-
-process.on(
-    'unhandledRejection',
-    (reason) => {
-
-        console.error(
-            'Unhandled Rejection:',
-            reason
-        );
-
     }
 );
